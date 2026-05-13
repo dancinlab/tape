@@ -1,17 +1,37 @@
 // ══════════════════════════════════════════════════════════════
-// tape_to_n6.hexa — extract verified facts from .tape → .n6 atoms
+// tape_to_n6.hexa — extract verified atoms from .tape → .n6 atoms
 //
-// @module(slug="tape_to_n6", desc="Promotion adapter: scan a .tape, identify entries whose content survives a verification criterion, emit n6 atoms in the sibling .n6 grammar. v1 scaffold: identifies promotion candidates (@R with [ok] whose result encodes a stable fact, @A with [ok] in `domain=recap`). Full atom synthesis (grade assignment, edge derivation) is PASS-2 — see DESIGN.md §Open-questions.")
+// @module(slug="tape_to_n6", desc="Promotion adapter: scan a .tape, identify entries whose content survives a verification criterion, emit n6 atoms in the sibling .n6 grammar. PASS-2 implements three promotion rules: (1) @R [ok] |> <proof> → @R [10*]; (2) @D [ok] <- c1, c2... → @L [9*] (law class); (3) @A => \"claim\" |> <proof> → @? [7?] (open hypothesis). Skips operational events (@U/@T/@K/@S/@P/@H/@?). Output is line-canonical .n6 (UTF-8, LF, no BOM, single trailing newline) per spec/n6.md.")
 // @usage(hexa algorithms/tape_to_n6.hexa --selftest)
 // @usage(hexa algorithms/tape_to_n6.hexa <tape.in> <atoms.n6.out>)
 // @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args)
 //
-// TODO PASS2 — see DESIGN.md §Open-questions (n6-grade overlay):
-//   - per-domain grade-assignment heuristic
-//   - edge derivation: tape @T t1 -> @R r1 ⇒ n6 atom `r1 <- t1` provenance
-//   - dedup against existing target .n6 (avoid re-promoting the same fact)
-//   - falsifier-edge generation for `@D deny` events (counter-example provenance)
+// Promotion-rule decision tree (PASS-2):
+//
+//   tape header @<type> <id> ... :: <domain> [<grade>]
+//      │
+//      ├─ @R  + state=ok + has-continuation `|> <proof>`
+//      │       → emit n6 `@R <slug>_<id>[ = <expr>] :: <domain> [10*]`
+//      │              `|> <proof>` (preserved verbatim)
+//      │
+//      ├─ @D  + state=ok + ≥1 continuation `<- c1[, c2...]`
+//      │       → emit n6 `@L <slug>_<id> :: <domain> [9*]`
+//      │              `<- c1, c2...` (constituents preserved)
+//      │              `"<prose>"` if a quoted-prose continuation exists
+//      │
+//      ├─ @A  + has-continuation `=> "<claim>"` + has-continuation `|> <proof>`
+//      │       → emit n6 `@? <slug>_<id> :: <domain> [7?]`
+//      │              `"<claim>"` (first quoted-prose / => target)
+//      │              `|> <proof>`
+//      │
+//      └─ otherwise: skip (operational event — not a stable fact)
+//
+// Cross-file id dictionary: input `<id>` is the suffix; slug derived from the first
+// space-token of expr/prose (alphanumerics + `_` only). Uniqueness is enforced
+// within the output by suffixing `_2`, `_3`, ... on collision.
 // ══════════════════════════════════════════════════════════════
+
+// ── line classifiers ───────────────────────────────────────────
 
 fn _is_header(line: string) -> bool {
     if line.len() < 2 { return false }
@@ -24,6 +44,63 @@ fn _is_header(line: string) -> bool {
         i = i + 1
     }
     return false
+}
+
+fn _is_continuation(line: string) -> bool {
+    if line.len() < 2 { return false }
+    if line.substring(0, 2) != "  " { return false }
+    return true
+}
+
+// ── header parsing ─────────────────────────────────────────────
+
+fn _header_type(line: string) -> string {
+    if line.len() < 2 { return "" }
+    return line.substring(1, 2)
+}
+
+// Token after `@<T> ` and before the next space (or `:=` or `=` if no space).
+fn _header_id(line: string) -> string {
+    if line.len() < 4 { return "" }
+    let rest = line.substring(3, line.len())
+    let sp = rest.find(" ")
+    if sp < 0 { return rest }
+    return rest.substring(0, sp)
+}
+
+// Returns text after `::` up to the next space — the domain tag.
+fn _header_domain(line: string) -> string {
+    let dd = line.find(" :: ")
+    if dd < 0 { return "" }
+    let rest = line.substring(dd + 4, line.len())
+    let sp = rest.find(" ")
+    if sp < 0 {
+        // domain runs to end (no grade bracket — unexpected, but tolerate)
+        return rest
+    }
+    return rest.substring(0, sp)
+}
+
+// Returns the inline expression after `<id> := "..."` or `<id> = ...`, before ` :: <domain>`.
+// For headers without an `=`/`:=` form (e.g. `@R r001 read ok :: tool [...]`), returns "".
+fn _header_def_expr(line: string) -> string {
+    let dd = line.find(" :: ")
+    if dd < 0 { return "" }
+    let head = line.substring(0, dd)
+    // try `:=` first (then `=` as fallback)
+    let mut eq = head.find(" := ")
+    let mut eq_len: i64 = 4
+    if eq < 0 {
+        eq = head.find(" = ")
+        eq_len = 3
+    }
+    if eq < 0 { return "" }
+    let raw = head.substring(eq + eq_len, head.len())
+    // strip surrounding quotes if present
+    if raw.len() > 1 && raw.substring(0, 1) == "\"" && raw.substring(raw.len() - 1, raw.len()) == "\"" {
+        return raw.substring(1, raw.len() - 1)
+    }
+    return raw
 }
 
 fn _grade_has_state(line: string, state: string) -> bool {
@@ -48,63 +125,367 @@ fn _grade_has_state(line: string, state: string) -> bool {
     return false
 }
 
-// Identify promotion candidates. Returns a list of header lines that
-// MAY become n6 atoms in PASS-2. v1 scope: @R [ok] + @A [ok] domain=recap.
-fn tape_to_n6_candidates(body: string) -> [string] {
-    let lines = body.split("\n")
+// ── continuation harvesting ────────────────────────────────────
+
+// Return all continuation lines (verbatim, including the two-space indent)
+// belonging to the header at `from`. Stops at first non-continuation line.
+fn _continuations_at(lines: [string], from: i64) -> [string] {
     let mut out: [string] = []
-    let mut i: i64 = 0
+    let mut i: i64 = from + 1
     while i < lines.len() {
         let ln = lines[i]
-        if _is_header(ln) {
-            let t = ln.substring(1, 2)
-            if t == "R" {
-                if _grade_has_state(ln, "ok") { out.push(ln) }
-            } else { if t == "A" {
-                if _grade_has_state(ln, "ok") {
-                    if ln.contains(":: recap ") { out.push(ln) }
-                }
-            } }
-        }
+        if !_is_continuation(ln) { return out }
+        out.push(ln)
         i = i + 1
     }
     return out
 }
 
-// PASS-1 scaffold: render candidates as @R n6 atoms with placeholder grade.
-// The grade is a placeholder `[9]` — PASS-2 must replace with verified `[10*]`
-// after the verifier sign-off.
-fn tape_to_n6_render_scaffold(candidates: [string]) -> string {
-    let mut buf = ""
-    buf = buf + "#!/usr/bin/env n6\n"
-    buf = buf + "# ══════════════════════════════════════════════════════════════\n"
-    buf = buf + "# tape_to_n6 scaffold output — PASS-2 grade-assignment pending\n"
-    buf = buf + "# ══════════════════════════════════════════════════════════════\n"
+// Find first continuation starting with `<prefix>` (after the two-space indent).
+// Returns the payload (text after `<prefix> `) or "" if absent.
+fn _find_cont_payload(conts: [string], prefix: string) -> string {
     let mut i: i64 = 0
-    while i < candidates.len() {
-        let h = candidates[i]
-        buf = buf + "@R promoted_" + to_string(i) + " :: runtime [9]\n"
-        buf = buf + "  \"" + h + "\"\n"
-        buf = buf + "  |> tape_to_n6_scaffold\n"
+    while i < conts.len() {
+        let body = conts[i].substring(2, conts[i].len())
+        if body.len() > prefix.len() && body.substring(0, prefix.len()) == prefix {
+            let rest = body.substring(prefix.len(), body.len())
+            if rest.len() > 0 && rest.substring(0, 1) == " " {
+                return rest.substring(1, rest.len())
+            }
+            return rest
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+// `_has_cont_prefix("|>", conts)` → true if any continuation begins with `|> ` (or exactly `|>`).
+fn _has_cont_prefix(conts: [string], prefix: string) -> bool {
+    let mut i: i64 = 0
+    while i < conts.len() {
+        let body = conts[i].substring(2, conts[i].len())
+        if body == prefix { return true }
+        if body.len() > prefix.len() && body.substring(0, prefix.len() + 1) == prefix + " " { return true }
+        i = i + 1
+    }
+    return false
+}
+
+// First quoted-prose continuation: a `  "..."` line (no edge prefix), strip wrap quotes.
+fn _find_quoted_prose(conts: [string]) -> string {
+    let mut i: i64 = 0
+    while i < conts.len() {
+        let body = conts[i].substring(2, conts[i].len())
+        if body.len() > 1 && body.substring(0, 1) == "\"" {
+            let n = body.len()
+            if body.substring(n - 1, n) == "\"" { return body.substring(1, n - 1) }
+            return body.substring(1, n)
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+// ── slug + uniqueness ──────────────────────────────────────────
+
+// Lowercase alphanumeric + `_` only; everything else dropped. First space-token of `s`.
+fn tape_to_n6_slug(s: string) -> string {
+    let trimmed = s.trim()
+    if trimmed.len() == 0 { return "" }
+    let sp = trimmed.find(" ")
+    let mut first = trimmed
+    if sp > -1 { first = trimmed.substring(0, sp) }
+    let mut out = ""
+    let mut i: i64 = 0
+    while i < first.len() {
+        let c = first.substring(i, i + 1)
+        let cc = c.to_lower()
+        let is_alpha = cc >= "a" && cc < "{"
+        let is_digit = c >= "0" && c < ":"
+        let is_under = c == "_"
+        if is_alpha || is_digit || is_under { out = out + cc }
+        i = i + 1
+    }
+    return out
+}
+
+fn _contains(taken: [string], cand: string) -> bool {
+    let mut i: i64 = 0
+    while i < taken.len() {
+        if taken[i] == cand { return true }
+        i = i + 1
+    }
+    return false
+}
+
+fn _unique_id(taken: [string], base: string) -> string {
+    if !_contains(taken, base) { return base }
+    let mut k: i64 = 2
+    while k < 10000 {
+        let cand = base + "_" + to_string(k)
+        if !_contains(taken, cand) { return cand }
+        k = k + 1
+    }
+    return base + "_x"
+}
+
+// ── promotion ──────────────────────────────────────────────────
+
+// Promote the .tape body and return the rendered .n6 text.
+// The output is byte-canonical: UTF-8, LF endings, single trailing `\n`,
+// section divider comment preserved at top.
+pub fn tape_to_n6_promote(body: string) -> string {
+    let lines = body.split("\n")
+    let mut buf = ""
+    buf = buf + "# ══════════════════════════════════════════════════════════════\n"
+    buf = buf + "# tape_to_n6 — promoted atoms (rule 1: @R→@R[10*], rule 2: @D→@L[9*], rule 3: @A→@?[7?])\n"
+    buf = buf + "# ══════════════════════════════════════════════════════════════\n"
+
+    let mut taken: [string] = []
+    let mut atoms_emitted: i64 = 0
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if !_is_header(ln) { i = i + 1 ; continue }
+        let t = _header_type(ln)
+        let tape_id = _header_id(ln)
+        let domain = _header_domain(ln)
+        let expr = _header_def_expr(ln)
+        let conts = _continuations_at(lines, i)
+        let is_ok = _grade_has_state(ln, "ok")
+
+        // Rule 1: @R [ok] |> <proof-ref> → @R <slug>_<id>[ = <expr>] :: <domain> [10*]
+        if t == "R" && is_ok && _has_cont_prefix(conts, "|>") {
+            let proof_ref = _find_cont_payload(conts, "|>")
+            let slug_src = expr
+            let slug = tape_to_n6_slug(slug_src)
+            let mut nid = slug + "_" + tape_id
+            if slug.len() == 0 { nid = "r_" + tape_id }
+            nid = _unique_id(taken, nid)
+            taken.push(nid)
+            let mut hdr = "@R " + nid
+            if expr.len() > 0 { hdr = hdr + " = " + expr }
+            hdr = hdr + " :: " + domain + " [10*]"
+            buf = buf + "\n" + hdr + "\n"
+            if proof_ref.len() > 0 { buf = buf + "  |> " + proof_ref + "\n" }
+            atoms_emitted = atoms_emitted + 1
+            i = i + 1 ; continue
+        }
+
+        // Rule 2: @D [ok] + ≥1 `<-` constituent → @L <slug>_<id> :: <domain> [9*]
+        if t == "D" && is_ok && _has_cont_prefix(conts, "<-") {
+            let constituents = _find_cont_payload(conts, "<-")
+            let prose = _find_quoted_prose(conts)
+            let slug_src = expr
+            let slug = tape_to_n6_slug(slug_src)
+            let mut nid = slug + "_" + tape_id
+            if slug.len() == 0 { nid = "d_" + tape_id }
+            nid = _unique_id(taken, nid)
+            taken.push(nid)
+            let hdr = "@L " + nid + " :: " + domain + " [9*]"
+            buf = buf + "\n" + hdr + "\n"
+            buf = buf + "  <- " + constituents + "\n"
+            if prose.len() > 0 { buf = buf + "  \"" + prose + "\"\n" }
+            atoms_emitted = atoms_emitted + 1
+            i = i + 1 ; continue
+        }
+
+        // Rule 3: @A + `=> "<claim>"` + `|> <proof-ref>` → @? <slug>_<id> :: <domain> [7?]
+        if t == "A" && _has_cont_prefix(conts, "=>") && _has_cont_prefix(conts, "|>") {
+            let claim_raw = _find_cont_payload(conts, "=>")
+            // strip wrap quotes if present
+            let mut claim = claim_raw
+            if claim.len() > 1 && claim.substring(0, 1) == "\"" && claim.substring(claim.len() - 1, claim.len()) == "\"" {
+                claim = claim.substring(1, claim.len() - 1)
+            }
+            let proof_ref = _find_cont_payload(conts, "|>")
+            let slug = tape_to_n6_slug(claim)
+            let mut nid = slug + "_" + tape_id
+            if slug.len() == 0 { nid = "a_" + tape_id }
+            nid = _unique_id(taken, nid)
+            taken.push(nid)
+            let hdr = "@? " + nid + " :: " + domain + " [7?]"
+            buf = buf + "\n" + hdr + "\n"
+            if claim.len() > 0 { buf = buf + "  \"" + claim + "\"\n" }
+            if proof_ref.len() > 0 { buf = buf + "  |> " + proof_ref + "\n" }
+            atoms_emitted = atoms_emitted + 1
+            i = i + 1 ; continue
+        }
+
+        // skip everything else (@U / @T / @K / @S / @P / @H / @? / unmatched-rules)
         i = i + 1
     }
     return buf
 }
 
+// ── output validator (sanity check) ────────────────────────────
+
+// Confirms every non-blank, non-comment line is either an n6 header or a valid
+// continuation (`<-`, `->`, `=>`, `==`, `~>`, `|>`, `!!`, or quoted prose).
+// Used by the selftest.
+pub fn tape_to_n6_validate_n6(body: string) -> i64 {
+    let lines = body.split("\n")
+    let n6_types = "PCLFRSX?E"
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if ln.len() == 0 { i = i + 1 ; continue }
+        if ln.substring(0, 1) == "#" { i = i + 1 ; continue }
+        if ln.substring(0, 1) == "@" {
+            if ln.len() < 2 { return 1 }
+            let t = ln.substring(1, 2)
+            let mut found = false
+            let mut k: i64 = 0
+            while k < n6_types.len() {
+                if n6_types.substring(k, k + 1) == t { found = true }
+                k = k + 1
+            }
+            if !found { return 2 }
+            if ln.find(" :: ") < 0 { return 3 }
+            if ln.find("[") < 0 || ln.find("]") < 0 { return 4 }
+            i = i + 1 ; continue
+        }
+        // must be continuation: two-space indent
+        if ln.len() < 2 || ln.substring(0, 2) != "  " { return 5 }
+        let body2 = ln.substring(2, ln.len())
+        // valid: starts with quote OR one of the edge ops
+        let edges = ["<-", "->", "=>", "==", "~>", "|>", "!!"]
+        if body2.len() > 0 && body2.substring(0, 1) == "\"" { i = i + 1 ; continue }
+        let mut ok_edge = false
+        let mut e: i64 = 0
+        while e < edges.len() {
+            let p = edges[e]
+            if body2 == p { ok_edge = true }
+            if body2.len() > p.len() && body2.substring(0, p.len() + 1) == p + " " { ok_edge = true }
+            e = e + 1
+        }
+        if !ok_edge { return 6 }
+        i = i + 1
+    }
+    return 0
+}
+
+// ── selftest ───────────────────────────────────────────────────
+
 fn _selftest() -> i64 {
     let mut fail: i64 = 0
+
+    // Fixture from the PASS-2 spec — a verified @R relation + a @D law with constituents.
     let fixture = ""
+        + "@R r001 := \"sigma(6) = 12\" :: math [d=2026-05-13 ok]\n"
+        + "  |> verify_primitives.py\n"
+        + "\n"
+        + "@D d001 := \"perfect_number\" :: math [d=2026-05-13 ok]\n"
+        + "  <- r001\n"
+        + "  \"6 is the smallest perfect number\"\n"
+
+    let out = tape_to_n6_promote(fixture)
+
+    // Rule 1: @R r001 with |> ⇒ @R sigma6_r001 = sigma(6) = 12 :: math [10*]
+    if !out.contains("@R sigma6_r001 = sigma(6) = 12 :: math [10*]") {
+        eprintln("FAIL: rule-1 R→R missing sigma6_r001 atom")
+        fail = fail + 1
+    }
+    if !out.contains("  |> verify_primitives.py") {
+        eprintln("FAIL: rule-1 verified-by edge not preserved")
+        fail = fail + 1
+    }
+
+    // Rule 2: @D d001 with <- r001 ⇒ @L perfect_number_d001 :: math [9*]
+    if !out.contains("@L perfect_number_d001 :: math [9*]") {
+        eprintln("FAIL: rule-2 D→L missing perfect_number_d001 atom")
+        fail = fail + 1
+    }
+    if !out.contains("  <- r001") {
+        eprintln("FAIL: rule-2 constituent edge not preserved")
+        fail = fail + 1
+    }
+    if !out.contains("\"6 is the smallest perfect number\"") {
+        eprintln("FAIL: rule-2 quoted prose not preserved")
+        fail = fail + 1
+    }
+
+    // Output is valid .n6 per the spec validator.
+    let vc = tape_to_n6_validate_n6(out)
+    if vc != 0 {
+        eprintln("FAIL: output failed n6 validator with code " + to_string(vc))
+        fail = fail + 1
+    }
+
+    // Rule 3 (@A → @? hypothesis): separate fixture.
+    let a_fixture = ""
+        + "@A a042 :: math [T7 N201 ok]\n"
+        + "  => \"sigma(28) = 56 = 2*28 — 28 is also perfect\"\n"
+        + "  |> verify_primitives.py\n"
+    let out_a = tape_to_n6_promote(a_fixture)
+    if !out_a.contains("@? sigma28_a042 :: math [7?]") {
+        eprintln("FAIL: rule-3 A→? missing sigma28_a042 atom")
+        fail = fail + 1
+    }
+    if !out_a.contains("  \"sigma(28) = 56 = 2*28 — 28 is also perfect\"") {
+        eprintln("FAIL: rule-3 claim prose not preserved")
+        fail = fail + 1
+    }
+    if !out_a.contains("  |> verify_primitives.py") {
+        eprintln("FAIL: rule-3 verified-by edge not preserved")
+        fail = fail + 1
+    }
+
+    // Skip-rules: operational events emit nothing.
+    let op_fixture = ""
         + "@S start s001 :: session [T0 N0 ok]\n"
-        + "@R r001 read ok :: tool [T1 N1 ok]\n"
-        + "@R r002 write err :: tool [T2 N2 err]\n"
-        + "@A a001 = \"recap of turn 1-3\" :: recap [T4 N20 ok]\n"
-        + "@A a002 :: harness [T1 N3 ok]\n"
-    let cands = tape_to_n6_candidates(fixture)
-    // r001 (ok) + a001 (recap, ok) — but NOT r002 (err), NOT a002 (not recap)
-    if cands.len() != 2 { eprintln("FAIL: expected 2 candidates, got " + to_string(cands.len())) ; fail = fail + 1 }
-    let out = tape_to_n6_render_scaffold(cands)
-    if !out.contains("@R promoted_0 :: runtime [9]") { eprintln("FAIL: scaffold missing promoted_0") ; fail = fail + 1 }
-    if !out.contains("|> tape_to_n6_scaffold") { eprintln("FAIL: scaffold missing verifier edge") ; fail = fail + 1 }
+        + "@U u001 = \"hello\" :: harness [T1 N3 ok]\n"
+        + "@T t001 write :: tool [T2 N4 ok]\n"
+        + "  <- u001\n"
+        + "@K k001 = 5+31+0 = 36 ucents :: cost [T2 N5 ok]\n"
+    let op_out = tape_to_n6_promote(op_fixture)
+    // Output should contain only the header comment — no `@` atoms after.
+    let op_lines = op_out.split("\n")
+    let mut atom_count: i64 = 0
+    let mut li: i64 = 0
+    while li < op_lines.len() {
+        if op_lines[li].len() > 0 && op_lines[li].substring(0, 1) == "@" { atom_count = atom_count + 1 }
+        li = li + 1
+    }
+    if atom_count != 0 {
+        eprintln("FAIL: operational-events fixture promoted " + to_string(atom_count) + " atoms (expected 0)")
+        fail = fail + 1
+    }
+
+    // Reject rule-1 without |> (un-verified @R must NOT promote)
+    let unverified = "@R r099 := \"unverified claim\" :: math [d=2026-05-13 ok]\n"
+    let uv_out = tape_to_n6_promote(unverified)
+    if uv_out.contains("@R unverified_r099") || uv_out.contains("r099") {
+        eprintln("FAIL: unverified @R (no |>) was promoted")
+        fail = fail + 1
+    }
+
+    // Reject rule-1 with err grade
+    let err_r = ""
+        + "@R r100 := \"sigma(7) = 8\" :: math [d=2026-05-13 err]\n"
+        + "  |> verify_primitives.py\n"
+    let er_out = tape_to_n6_promote(err_r)
+    if er_out.contains("r100") {
+        eprintln("FAIL: @R [err] was promoted")
+        fail = fail + 1
+    }
+
+    // Id-collision resolution: same expr/id-base should get _2 suffix.
+    let dup = ""
+        + "@R r001 := \"sigma(6) = 12\" :: math [d=2026-05-13 ok]\n"
+        + "  |> verify_primitives.py\n"
+        + "@R r001 := \"sigma(6) = 12\" :: math [d=2026-05-14 ok]\n"
+        + "  |> verify_primitives.py\n"
+    let dup_out = tape_to_n6_promote(dup)
+    if !dup_out.contains("@R sigma6_r001 = sigma(6) = 12 :: math [10*]") {
+        eprintln("FAIL: dup test missing primary atom")
+        fail = fail + 1
+    }
+    if !dup_out.contains("@R sigma6_r001_2 = sigma(6) = 12 :: math [10*]") {
+        eprintln("FAIL: dup test missing _2-suffixed atom")
+        fail = fail + 1
+    }
+
     return fail
 }
 
