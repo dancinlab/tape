@@ -1,0 +1,185 @@
+// ══════════════════════════════════════════════════════════════
+// tape_to_md_log.hexa — `<DOMAIN>.tape` tail → `<DOMAIN>.md` `## Log` AUTO-RENDER block (v1.1)
+//
+// @module(slug="tape_to_md_log", desc="Render the AUTO-RENDER fence inside the `## Log` section of a wilson `<DOMAIN>.md` from the tail of its sibling `<DOMAIN>.tape`. Idempotent — re-running on the same inputs produces byte-identical output. The fence is `<!-- AUTO-RENDER from <DOMAIN>.tape (last N) -->` ... `<!-- /AUTO-RENDER -->`. Content outside the fence is human-written and preserved verbatim. Closes the author-discipline gap of wilson governance principle #4 (`domain-meta-domain`).")
+// @usage(hexa algorithms/tape_to_md_log.hexa --selftest)
+// @usage(hexa algorithms/tape_to_md_log.hexa <DOMAIN>.md <DOMAIN>.tape [<N=20>])
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args, 4=no-log-section)
+// ══════════════════════════════════════════════════════════════
+
+let FENCE_OPEN  = "<!-- AUTO-RENDER from "
+let FENCE_CLOSE = "<!-- /AUTO-RENDER -->"
+
+fn _is_header(line: string) -> bool {
+    if line.len() < 2 { return false }
+    if line.substring(0, 1) != "@" { return false }
+    let known = "SUATRHDKPI?"
+    let t = line.substring(1, 2)
+    let mut i: i64 = 0
+    while i < known.len() {
+        if known.substring(i, i + 1) == t { return true }
+        i = i + 1
+    }
+    return false
+}
+
+fn _grade_date(line: string) -> string {
+    let lb = line.find("[")
+    let rb = line.find("]")
+    if lb < 0 || rb < lb { return "" }
+    let grade = line.substring(lb + 1, rb)
+    let toks = grade.split(" ")
+    let mut i: i64 = 0
+    while i < toks.len() {
+        let tok = toks[i]
+        if tok.len() > 1 && tok.substring(0, 2) == "d=" { return tok.substring(2, tok.len()) }
+        i = i + 1
+    }
+    return ""
+}
+
+fn _first_prose_or_produces(lines: [string], from: i64) -> string {
+    let mut i: i64 = from + 1
+    while i < lines.len() {
+        let ln = lines[i]
+        if ln.len() < 2 { return "" }
+        if ln.substring(0, 2) != "  " { return "" }
+        let rest = ln.substring(2, ln.len())
+        if rest.len() > 3 && rest.substring(0, 3) == "=> " { return rest.substring(3, rest.len()) }
+        if rest.len() > 0 && rest.substring(0, 1) == "\"" {
+            // trim wrap quotes if present
+            let n = rest.len()
+            if n > 1 && rest.substring(n - 1, n) == "\"" { return rest.substring(1, n - 1) }
+            return rest
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+pub fn tape_to_md_log_render(tape_body: string, last_n: i64) -> string {
+    let lines = tape_body.split("\n")
+    let mut entries: [string] = []
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if _is_header(ln) {
+            let date = _grade_date(ln)
+            let prose = _first_prose_or_produces(lines, i)
+            let mut entry = "### "
+            if date.len() > 0 { entry = entry + date + "  ·  " }
+            if prose.len() > 0 { entry = entry + prose } else { entry = entry + ln }
+            entries.push(entry + "\n" + ln)
+        }
+        i = i + 1
+    }
+    // tail last_n
+    let mut start: i64 = 0
+    if entries.len() > last_n { start = entries.len() - last_n }
+    let mut out = ""
+    let mut k: i64 = start
+    while k < entries.len() {
+        if k > start { out = out + "\n\n" }
+        out = out + entries[k]
+        k = k + 1
+    }
+    return out
+}
+
+// Walk md text; find the AUTO-RENDER fence inside ## Log; replace its body with rendered.
+// If no fence found, append a fresh one to end of ## Log section (creating ## Log if absent).
+pub fn tape_to_md_log_inject(md_body: string, tape_path_label: string, rendered: string) -> string {
+    let open_marker = FENCE_OPEN + tape_path_label
+    let lines = md_body.split("\n")
+    let mut out = ""
+    let mut i: i64 = 0
+    let mut replaced = false
+    while i < lines.len() {
+        let ln = lines[i]
+        if !replaced && ln.find(open_marker) > -1 {
+            // emit open fence as-is
+            out = out + ln + "\n"
+            out = out + rendered + "\n"
+            // skip until close fence
+            i = i + 1
+            while i < lines.len() {
+                if lines[i].find(FENCE_CLOSE) > -1 {
+                    out = out + lines[i] + "\n"
+                    replaced = true
+                    break
+                }
+                i = i + 1
+            }
+            i = i + 1
+            continue
+        }
+        out = out + ln
+        if i < lines.len() - 1 { out = out + "\n" }
+        i = i + 1
+    }
+    if !replaced {
+        // append fresh fence at end of file
+        if out.len() > 0 && out.substring(out.len() - 1, out.len()) != "\n" { out = out + "\n" }
+        out = out + "\n" + open_marker + " (last N) -->\n" + rendered + "\n" + FENCE_CLOSE + "\n"
+    }
+    return out
+}
+
+fn _selftest() -> i64 {
+    let tape = "@A a001 :: harness [d=2026-05-12 ok]\n" +
+               "  => TUI raw-mode lands\n" +
+               "\n" +
+               "@A a002 :: harness [d=2026-05-13 ok]\n" +
+               "  => Shift+Enter multi-line input\n"
+    let rendered = tape_to_md_log_render(tape, 20)
+    if rendered.find("TUI raw-mode") < 0 { return 1 }
+    if rendered.find("Shift+Enter") < 0 { return 1 }
+    if rendered.find("2026-05-13") < 0 { return 1 }
+
+    // Idempotency: same input → byte-identical
+    let r2 = tape_to_md_log_render(tape, 20)
+    if r2 != rendered { return 1 }
+
+    // Inject: existing fence replaced
+    let md = "# HARNESS\n\n## Conditions\n- C1: ...\n\n## Log\n<!-- AUTO-RENDER from HARNESS.tape (last 20) -->\nold stale content\n<!-- /AUTO-RENDER -->\n"
+    let injected = tape_to_md_log_inject(md, "HARNESS.tape", rendered)
+    if injected.find("TUI raw-mode") < 0 { return 1 }
+    if injected.find("old stale content") > -1 { return 1 }     // must be gone
+
+    // Inject: no fence yet → fresh fence appended
+    let md_bare = "# HARNESS\n\n## Conditions\n- C1: ...\n\n## Log\n"
+    let injected2 = tape_to_md_log_inject(md_bare, "HARNESS.tape", rendered)
+    if injected2.find(FENCE_CLOSE) < 0 { return 1 }
+    if injected2.find("TUI raw-mode") < 0 { return 1 }
+    return 0
+}
+
+pub fn main() -> i64 {
+    let argv = args()
+    if argv.len() < 2 { eprintln("usage: tape_to_md_log <DOMAIN>.md <DOMAIN>.tape [<N>] | --selftest") ; return 3 }
+    let arg1 = argv[1]
+    if arg1 == "--selftest" {
+        let rc = _selftest()
+        if rc == 0 { println("OK: tape_to_md_log selftest passed") ; return 0 }
+        eprintln("FAIL: tape_to_md_log selftest rc=" + str(rc))
+        return 1
+    }
+    if argv.len() < 3 { eprintln("usage: tape_to_md_log <DOMAIN>.md <DOMAIN>.tape [<N>]") ; return 3 }
+    let md_path = argv[1]
+    let tape_path = argv[2]
+    let mut n: i64 = 20
+    if argv.len() > 3 { n = parse_int(argv[3]) }
+    if !file_exists(md_path)   { eprintln("no such md: " + md_path) ; return 2 }
+    if !file_exists(tape_path) { eprintln("no such tape: " + tape_path) ; return 2 }
+    let md_body = fs_read_text(md_path)
+    let tape_body = fs_read_text(tape_path)
+    let rendered = tape_to_md_log_render(tape_body, n)
+    let label = tape_path
+    // basename
+    let slash = label.rfind("/")
+    if slash > -1 { let lbl2 = label.substring(slash + 1, label.len()) ; let injected = tape_to_md_log_inject(md_body, lbl2, rendered) ; fs_write_text(md_path, injected) ; println("wrote " + md_path) ; return 0 }
+    let injected = tape_to_md_log_inject(md_body, label, rendered)
+    fs_write_text(md_path, injected)
+    println("wrote " + md_path)
+    return 0
+}

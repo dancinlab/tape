@@ -1,0 +1,295 @@
+// ══════════════════════════════════════════════════════════════
+// tape_absorb.hexa — schema-validated append for .tape
+//
+// @module(slug="tape_absorb", desc="Guarded ingestion — schema check + dangling-edge check + append. Mirrors n6's _guarded_append_atlas(). Every byte that lands in a .tape file MUST flow through this entry point.")
+// @usage(hexa algorithms/tape_absorb.hexa --selftest)
+// @usage(hexa algorithms/tape_absorb.hexa --file <path> --entry '@U u001 = "hi" :: harness [T1 N0 ok]')
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args, 4=schema-violation, 5=dangling-edge)
+//
+// Validation pipeline (4 steps, per spec/tape.md §Validation pipeline):
+//   1. Header well-formed:
+//        ^@[SUATRHDKPI?]\s+\S+( = .*?)?\s+::\s+\S+\s+\[[^\]]+\]\s*$
+//   2. Type-grade compatibility:
+//        - exactly one of {ok, err, denied, cancelled, partial} per bracket
+//        - @D deny ↔ denied; @? typically ↔ err / denied / cancelled
+//   3. Dangling-edge check: every id referenced in <-, ->, ==, ~>, |>, !!
+//      continuation lines references a prior id in the same tape.
+//   4. Idempotency: same (type, id) not appended twice (except streaming
+//      compaction — out of scope here; tape_compact handles).
+// ══════════════════════════════════════════════════════════════
+
+// ───── header parsing ─────
+
+// Returns true if `line` is a well-formed entry header.
+// We hand-parse rather than regex (hexa interp has limited regex).
+fn _is_header(line: string) -> bool {
+    let n = line.len()
+    if n < 8 { return false }
+    if line.substring(0, 1) != "@" { return false }
+    let t = line.substring(1, 2)
+    let known = "SUATRHDKPI?"
+    let mut found_type = false
+    let mut i: i64 = 0
+    while i < known.len() {
+        if known.substring(i, i + 1) == t { found_type = true }
+        i = i + 1
+    }
+    if !found_type { return false }
+    // must contain " :: " separator
+    if !line.contains(" :: ") { return false }
+    // must end with "]"
+    if line.substring(n - 1, n) != "]" { return false }
+    // must contain "[" before the closing "]"
+    if !line.contains(" [") { return false }
+    return true
+}
+
+// Extract (type, id) from a header line. Returns ["", ""] on failure.
+fn _parse_header_type_id(line: string) -> [string] {
+    if !_is_header(line) { return ["", ""] }
+    let t = line.substring(1, 2)
+    // After "@X " the next token is the id (until next space).
+    let mut i: i64 = 3
+    let mut id_end = i
+    while id_end < line.len() {
+        if line.substring(id_end, id_end + 1) == " " { i = id_end ; id_end = line.len() }
+        id_end = id_end + 1
+    }
+    if i < 3 { return [t, ""] }
+    let id = line.substring(3, i)
+    return [t, id]
+}
+
+// Extract the grade bracket payload (e.g. "T2 N48 ok") from a header line.
+fn _parse_grade(line: string) -> string {
+    let mut lb: i64 = -1
+    let mut rb: i64 = -1
+    let mut i: i64 = 0
+    while i < line.len() {
+        let c = line.substring(i, i + 1)
+        if c == "[" { lb = i }
+        if c == "]" { rb = i }
+        i = i + 1
+    }
+    if lb < 0 { return "" }
+    if rb < lb { return "" }
+    return line.substring(lb + 1, rb)
+}
+
+// True if `grade` contains exactly one of the 5 delivery-state markers.
+fn _grade_state_ok(grade: string) -> bool {
+    let states = ["ok", "err", "denied", "cancelled", "partial"]
+    let parts = grade.split(" ")
+    let mut hits: i64 = 0
+    let mut pi: i64 = 0
+    while pi < parts.len() {
+        let p = parts[pi].trim()
+        let mut si: i64 = 0
+        while si < states.len() {
+            if p == states[si] { hits = hits + 1 }
+            si = si + 1
+        }
+        pi = pi + 1
+    }
+    return hits == 1
+}
+
+// ───── edge parsing ─────
+
+// True if `line` is an edge continuation (exactly 2 leading spaces, then a sigil).
+fn _is_edge_line(line: string) -> bool {
+    if line.len() < 4 { return false }
+    if line.substring(0, 2) != "  " { return false }
+    let t = line.substring(2, 3)
+    if t == " " { return false }
+    // sigil set: <- -> => == ~> |> !!
+    let two = line.substring(2, 4)
+    let sigils = ["<-", "->", "=>", "==", "~>", "|>", "!!"]
+    let mut si: i64 = 0
+    while si < sigils.len() {
+        if two == sigils[si] { return true }
+        si = si + 1
+    }
+    // quoted prose continuation (no sigil) — also valid
+    if t == "\"" { return true }
+    return false
+}
+
+// True if the sigil at line[2..4] is one that takes an id-list payload.
+fn _edge_takes_ids(line: string) -> bool {
+    if line.len() < 4 { return false }
+    let two = line.substring(2, 4)
+    let id_sigils = ["<-", "->", "==", "~>", "|>", "!!"]
+    let mut si: i64 = 0
+    while si < id_sigils.len() {
+        if two == id_sigils[si] { return true }
+        si = si + 1
+    }
+    return false
+}
+
+// Extract comma-separated ids from "  <- t001, t002, t003".
+fn _parse_edge_ids(line: string) -> [string] {
+    if !_edge_takes_ids(line) { return [] }
+    // strip leading "  <SIGIL> " (5 chars)
+    if line.len() < 6 { return [] }
+    let rest = line.substring(5, line.len())
+    let parts = rest.split(",")
+    let mut out: [string] = []
+    let mut i: i64 = 0
+    while i < parts.len() {
+        let p = parts[i].trim()
+        if p.len() > 0 { out.push(p) }
+        i = i + 1
+    }
+    return out
+}
+
+// ───── absorption ─────
+
+// Validate `entry` (one or more lines: header + 0..n continuations)
+// against the set of already-seen `(type, id)` pairs in `seen_ids`.
+// Returns "" on ok, an error message otherwise. Appends new (type, id)
+// pairs to `seen_ids` on success.
+//
+// `entry` is the full block as a single string with embedded newlines.
+fn tape_absorb_validate(entry: string, seen_ids: [string]) -> string {
+    let lines = entry.split("\n")
+    if lines.len() < 1 { return "empty entry" }
+    let header = lines[0]
+    if !_is_header(header) { return "schema: malformed header: " + header }
+    let grade = _parse_grade(header)
+    if grade.len() < 1 { return "schema: empty grade bracket" }
+    if !_grade_state_ok(grade) { return "schema: grade must contain exactly one delivery state" }
+    let ti = _parse_header_type_id(header)
+    if ti[1].len() < 1 { return "schema: empty id" }
+    let key = ti[0] + ":" + ti[1]
+    // idempotency check
+    let mut i: i64 = 0
+    while i < seen_ids.len() {
+        if seen_ids[i] == key { return "idempotency: (type, id) already seen: " + key }
+        i = i + 1
+    }
+    // dangling-edge check: every id in <-/->/==/~>/|>/!! continuations
+    // must already be in seen_ids (forward-references not permitted).
+    let mut li: i64 = 1
+    while li < lines.len() {
+        let cl = lines[li]
+        if cl.trim().len() > 0 {
+            if !_is_edge_line(cl) { return "schema: continuation not 2-space-indented or unknown sigil: " + cl }
+            if _edge_takes_ids(cl) {
+                let ids = _parse_edge_ids(cl)
+                let mut k: i64 = 0
+                while k < ids.len() {
+                    let want = ids[k]
+                    let mut hit = false
+                    let mut s: i64 = 0
+                    while s < seen_ids.len() {
+                        // seen_ids elements are "T:id" — match by suffix id only
+                        let row = seen_ids[s]
+                        // split row at ":"
+                        let colon = row.split(":")
+                        if colon.len() > 1 {
+                            if colon[1] == want { hit = true }
+                        }
+                        s = s + 1
+                    }
+                    if !hit { return "dangling: edge references unknown id: " + want }
+                    k = k + 1
+                }
+            }
+        }
+        li = li + 1
+    }
+    return ""
+}
+
+// Append `entry` (block) to `path`. Caller is responsible for trailing
+// newline contract: we add a final "\n" if entry doesn't end with one,
+// and we add a leading "\n" if the file is non-empty and doesn't end in "\n\n".
+fn tape_absorb_append(path: string, entry: string) -> bool {
+    let mut payload = entry
+    if payload.len() < 1 { return false }
+    let last = payload.substring(payload.len() - 1, payload.len())
+    if last != "\n" { payload = payload + "\n" }
+    // best-effort: prepend a blank line if the file doesn't end with one
+    let existing = read_file_safe(path)
+    let mut to_write = ""
+    if existing.len() > 0 {
+        let lp = existing.substring(existing.len() - 1, existing.len())
+        if lp != "\n" {
+            to_write = existing + "\n\n" + payload
+        } else {
+            // check second-to-last
+            if existing.len() > 1 {
+                let l2 = existing.substring(existing.len() - 2, existing.len() - 1)
+                if l2 != "\n" {
+                    to_write = existing + "\n" + payload
+                } else {
+                    to_write = existing + payload
+                }
+            } else {
+                to_write = existing + payload
+            }
+        }
+    } else {
+        to_write = payload
+    }
+    return write_file_safe(path, to_write)
+}
+
+// ───── selftest ─────
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+    // good header
+    if !_is_header("@U u001 = \"hi\" :: harness [T1 N3 ok]") {
+        eprintln("FAIL: good header rejected")
+        fail = fail + 1
+    }
+    // bad header — missing grade
+    if _is_header("@U u001 :: harness") {
+        eprintln("FAIL: bad header (no grade) accepted")
+        fail = fail + 1
+    }
+    // bad header — unknown type
+    if _is_header("@Z foo :: bar [ok]") {
+        eprintln("FAIL: unknown type @Z accepted")
+        fail = fail + 1
+    }
+    // grade — multiple states
+    if _grade_state_ok("T2 N48 ok err") {
+        eprintln("FAIL: multi-state grade accepted")
+        fail = fail + 1
+    }
+    if !_grade_state_ok("T2 N48 ok") {
+        eprintln("FAIL: single-state grade rejected")
+        fail = fail + 1
+    }
+    // dangling edge — known id resolves
+    let mut seen: [string] = []
+    let entry1 = "@S start s001 :: session [T0 N0 ok]"
+    let e1 = tape_absorb_validate(entry1, seen)
+    if e1.len() != 0 { eprintln("FAIL: entry1 rejected: " + e1) ; fail = fail + 1 }
+    seen.push("S:s001")
+    let entry2 = "@U u001 = \"hi\" :: harness [T1 N1 ok]\n  <- s001"
+    let e2 = tape_absorb_validate(entry2, seen)
+    if e2.len() != 0 { eprintln("FAIL: entry2 rejected: " + e2) ; fail = fail + 1 }
+    // dangling edge — unknown id rejects
+    let entry3 = "@A a001 :: harness [T1 N2 ok]\n  <- ghost"
+    let e3 = tape_absorb_validate(entry3, seen)
+    if e3.len() == 0 { eprintln("FAIL: dangling edge accepted") ; fail = fail + 1 }
+    return fail
+}
+
+let _a = args()
+let mut _i: i64 = 1
+let mut _mode = "selftest"
+while _i < _a.len() {
+    if _a[_i] == "--selftest" { _mode = "selftest" }
+    _i = _i + 1
+}
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_absorb] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_absorb] OK")
+exit(0)

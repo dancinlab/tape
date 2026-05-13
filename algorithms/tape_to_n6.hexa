@@ -1,0 +1,114 @@
+// ══════════════════════════════════════════════════════════════
+// tape_to_n6.hexa — extract verified facts from .tape → .n6 atoms
+//
+// @module(slug="tape_to_n6", desc="Promotion adapter: scan a .tape, identify entries whose content survives a verification criterion, emit n6 atoms in the sibling .n6 grammar. v1 scaffold: identifies promotion candidates (@R with [ok] whose result encodes a stable fact, @A with [ok] in `domain=recap`). Full atom synthesis (grade assignment, edge derivation) is PASS-2 — see DESIGN.md §Open-questions.")
+// @usage(hexa algorithms/tape_to_n6.hexa --selftest)
+// @usage(hexa algorithms/tape_to_n6.hexa <tape.in> <atoms.n6.out>)
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args)
+//
+// TODO PASS2 — see DESIGN.md §Open-questions (n6-grade overlay):
+//   - per-domain grade-assignment heuristic
+//   - edge derivation: tape @T t1 -> @R r1 ⇒ n6 atom `r1 <- t1` provenance
+//   - dedup against existing target .n6 (avoid re-promoting the same fact)
+//   - falsifier-edge generation for `@D deny` events (counter-example provenance)
+// ══════════════════════════════════════════════════════════════
+
+fn _is_header(line: string) -> bool {
+    if line.len() < 2 { return false }
+    if line.substring(0, 1) != "@" { return false }
+    let known = "SUATRHDKPI?"
+    let t = line.substring(1, 2)
+    let mut i: i64 = 0
+    while i < known.len() {
+        if known.substring(i, i + 1) == t { return true }
+        i = i + 1
+    }
+    return false
+}
+
+fn _grade_has_state(line: string, state: string) -> bool {
+    let mut lb: i64 = -1
+    let mut rb: i64 = -1
+    let mut i: i64 = 0
+    while i < line.len() {
+        let c = line.substring(i, i + 1)
+        if c == "[" { lb = i }
+        if c == "]" { rb = i }
+        i = i + 1
+    }
+    if lb < 0 { return false }
+    if rb < lb { return false }
+    let payload = line.substring(lb + 1, rb)
+    let parts = payload.split(" ")
+    let mut pi: i64 = 0
+    while pi < parts.len() {
+        if parts[pi].trim() == state { return true }
+        pi = pi + 1
+    }
+    return false
+}
+
+// Identify promotion candidates. Returns a list of header lines that
+// MAY become n6 atoms in PASS-2. v1 scope: @R [ok] + @A [ok] domain=recap.
+fn tape_to_n6_candidates(body: string) -> [string] {
+    let lines = body.split("\n")
+    let mut out: [string] = []
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if _is_header(ln) {
+            let t = ln.substring(1, 2)
+            if t == "R" {
+                if _grade_has_state(ln, "ok") { out.push(ln) }
+            } else { if t == "A" {
+                if _grade_has_state(ln, "ok") {
+                    if ln.contains(":: recap ") { out.push(ln) }
+                }
+            } }
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// PASS-1 scaffold: render candidates as @R n6 atoms with placeholder grade.
+// The grade is a placeholder `[9]` — PASS-2 must replace with verified `[10*]`
+// after the verifier sign-off.
+fn tape_to_n6_render_scaffold(candidates: [string]) -> string {
+    let mut buf = ""
+    buf = buf + "#!/usr/bin/env n6\n"
+    buf = buf + "# ══════════════════════════════════════════════════════════════\n"
+    buf = buf + "# tape_to_n6 scaffold output — PASS-2 grade-assignment pending\n"
+    buf = buf + "# ══════════════════════════════════════════════════════════════\n"
+    let mut i: i64 = 0
+    while i < candidates.len() {
+        let h = candidates[i]
+        buf = buf + "@R promoted_" + to_string(i) + " :: runtime [9]\n"
+        buf = buf + "  \"" + h + "\"\n"
+        buf = buf + "  |> tape_to_n6_scaffold\n"
+        i = i + 1
+    }
+    return buf
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+    let fixture = ""
+        + "@S start s001 :: session [T0 N0 ok]\n"
+        + "@R r001 read ok :: tool [T1 N1 ok]\n"
+        + "@R r002 write err :: tool [T2 N2 err]\n"
+        + "@A a001 = \"recap of turn 1-3\" :: recap [T4 N20 ok]\n"
+        + "@A a002 :: harness [T1 N3 ok]\n"
+    let cands = tape_to_n6_candidates(fixture)
+    // r001 (ok) + a001 (recap, ok) — but NOT r002 (err), NOT a002 (not recap)
+    if cands.len() != 2 { eprintln("FAIL: expected 2 candidates, got " + to_string(cands.len())) ; fail = fail + 1 }
+    let out = tape_to_n6_render_scaffold(cands)
+    if !out.contains("@R promoted_0 :: runtime [9]") { eprintln("FAIL: scaffold missing promoted_0") ; fail = fail + 1 }
+    if !out.contains("|> tape_to_n6_scaffold") { eprintln("FAIL: scaffold missing verifier edge") ; fail = fail + 1 }
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_to_n6] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_to_n6] OK")
+exit(0)

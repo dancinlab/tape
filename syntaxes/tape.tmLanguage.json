@@ -1,0 +1,115 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "tape",
+  "scopeName": "source.tape",
+  "fileTypes": ["tape"],
+  "patterns": [
+    { "include": "#shebang" },
+    { "include": "#section-divider" },
+    { "include": "#box-divider" },
+    { "include": "#comment" },
+    { "include": "#entry-header" },
+    { "include": "#edge-line" }
+  ],
+  "repository": {
+    "shebang": {
+      "match": "^#!.*$",
+      "name": "comment.line.shebang.tape"
+    },
+    "section-divider": {
+      "match": "^# ── .* ──+$",
+      "name": "markup.heading.section.tape"
+    },
+    "box-divider": {
+      "match": "^# ═+$",
+      "name": "markup.heading.box.tape"
+    },
+    "comment": {
+      "match": "^#.*$",
+      "name": "comment.line.number-sign.tape"
+    },
+    "entry-header": {
+      "match": "^(@[SUATRHDKPI?])\\s+(\\S+)(?:\\s+(.+?))?\\s+(::)\\s+(\\S+)\\s+(\\[)([^\\]]+)(\\])\\s*$",
+      "captures": {
+        "1": { "name": "keyword.control.type.tape" },
+        "2": { "name": "entity.name.event.tape" },
+        "3": { "patterns": [{ "include": "#expression" }] },
+        "4": { "name": "keyword.operator.domain.tape" },
+        "5": { "name": "entity.name.namespace.domain.tape" },
+        "6": { "name": "punctuation.definition.grade.begin.tape" },
+        "7": { "patterns": [{ "include": "#grade" }] },
+        "8": { "name": "punctuation.definition.grade.end.tape" }
+      }
+    },
+    "grade": {
+      "patterns": [
+        {
+          "match": "\\b(ok|err|denied|cancelled|partial|superseded)\\b",
+          "name": "keyword.other.delivery-state.tape"
+        },
+        {
+          "match": "\\b(T\\d+)\\b",
+          "name": "constant.numeric.turn-index.tape"
+        },
+        {
+          "match": "\\b(N\\d+)\\b",
+          "name": "constant.numeric.wall-clock.tape"
+        }
+      ]
+    },
+    "edge-line": {
+      "patterns": [
+        {
+          "match": "^(\\s+)(<-|->|=>|==|~>|\\|>|!!)(\\s+)(.*)$",
+          "captures": {
+            "2": { "name": "keyword.operator.edge.tape" },
+            "4": { "patterns": [{ "include": "#expression" }] }
+          }
+        },
+        {
+          "match": "^(\\s+)(\".*\")\\s*$",
+          "captures": {
+            "2": { "name": "string.quoted.double.prose.tape" }
+          }
+        }
+      ]
+    },
+    "expression": {
+      "patterns": [
+        { "include": "#string" },
+        { "include": "#number" },
+        { "include": "#kv-pair" },
+        { "include": "#operator" },
+        { "include": "#identifier" }
+      ]
+    },
+    "string": {
+      "name": "string.quoted.double.tape",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        { "name": "constant.character.escape.tape", "match": "\\\\." }
+      ]
+    },
+    "number": {
+      "name": "constant.numeric.tape",
+      "match": "-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?"
+    },
+    "kv-pair": {
+      "match": "([A-Za-z_][A-Za-z0-9_]*)(=)([^\\s,]+)",
+      "captures": {
+        "1": { "name": "variable.parameter.tape" },
+        "2": { "name": "keyword.operator.assignment.tape" },
+        "3": { "name": "string.unquoted.tape" }
+      }
+    },
+    "operator": {
+      "name": "keyword.operator.arithmetic.tape",
+      "match": "[+\\-*/^=()]"
+    },
+    "identifier": {
+      "name": "variable.other.tape",
+      "match": "[A-Za-z_][A-Za-z0-9_]*"
+    }
+  }
+}

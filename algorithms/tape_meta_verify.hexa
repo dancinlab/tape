@@ -1,0 +1,185 @@
+// ══════════════════════════════════════════════════════════════
+// tape_meta_verify.hexa — meta-domain Cn/Mm condition state from tape evidence (v1.1)
+//
+// @module(slug="tape_meta_verify", desc="Walk a meta-domain `<D1+D2+D3>.md` head section for typed `@D` Cn/Mm condition lines, cross-reference each against the sibling `.tape` for evidence, and emit a held/violated matrix. Closes wilson governance principle #4's author-discipline gap on the joint-condition side: the meta-domain's `being` (Ci ∧ Mi all hold) becomes machine-checked from tape evidence rather than `## Log`-prose-only.")
+// @usage(hexa algorithms/tape_meta_verify.hexa --selftest)
+// @usage(hexa algorithms/tape_meta_verify.hexa <META.md> <META.tape>)
+// @exit_codes(0=all-conditions-held, 1=selftest-fail, 2=io-error, 3=bad-args, 4=at-least-one-violated)
+// ══════════════════════════════════════════════════════════════
+
+// Parse one md line `@D <id> := "<text>" :: meta-domain [<grade>]` → [id, text, state].
+// Returns ["", "", ""] when not a condition line.
+fn _parse_cond_line(line: string) -> [string] {
+    let mut out = ["", "", ""]
+    if line.len() < 4 { return out }
+    if line.substring(0, 3) != "@D " { return out }
+    let rest = line.substring(3, line.len())
+    let dd = rest.find(" :: ")
+    if dd < 0 { return out }
+    let left = rest.substring(0, dd)
+    let right = rest.substring(dd + 4, rest.len())
+    if right.find("meta-domain") < 0 { return out }
+    // left = "<id> := \"<text>\""
+    let eq = left.find(" := ")
+    let mut id = ""
+    let mut text = ""
+    if eq > -1 {
+        id = left.substring(0, eq)
+        let raw = left.substring(eq + 4, left.len())
+        if raw.len() > 1 && raw.substring(0, 1) == "\"" {
+            let n = raw.len()
+            if n > 1 && raw.substring(n - 1, n) == "\"" { text = raw.substring(1, n - 1) } else { text = raw }
+        } else {
+            text = raw
+        }
+    } else {
+        id = left
+    }
+    let mut state = ""
+    let lb = right.find("[")
+    let rb = right.find("]")
+    if lb > -1 && rb > lb {
+        let grade = right.substring(lb + 1, rb)
+        let toks = grade.split(" ")
+        let mut i: i64 = 0
+        while i < toks.len() {
+            let tk = toks[i]
+            if tk == "ok"        { state = "held" }
+            if tk == "err"       { state = "violated" }
+            if tk == "denied"    { state = "violated" }
+            if tk == "cancelled" { state = "violated" }
+            i = i + 1
+        }
+    }
+    out[0] = id
+    out[1] = text
+    out[2] = state
+    return out
+}
+
+// Given the tape body, return true if id appears as a header (the evidence anchor).
+fn _id_in_tape(tape_body: string, id: string) -> bool {
+    if id.len() == 0 { return false }
+    let lines = tape_body.split("\n")
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if ln.len() > 3 && ln.substring(0, 1) == "@" {
+            // skip 2-char type prefix "@X " then parse id up to next space
+            let rest = ln.substring(3, ln.len())
+            let sp = rest.find(" ")
+            let cand = if sp > -1 { rest.substring(0, sp) } else { rest }
+            if cand == id { return true }
+            // also check `<id> :=` form
+            let cand_eq = cand.find(" :=")
+            if cand_eq > -1 && cand.substring(0, cand_eq) == id { return true }
+        }
+        i = i + 1
+    }
+    return false
+}
+
+// Build the verification matrix: list of [id, text, declared_state, tape_evidence_state, final_verdict]
+pub fn tape_meta_verify_matrix(md_body: string, tape_body: string) -> [[string]] {
+    let lines = md_body.split("\n")
+    let mut rows: [[string]] = []
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        let p = _parse_cond_line(ln)
+        if p[0].len() > 0 {
+            let id = p[0]
+            let text = p[1]
+            let declared = p[2]
+            let has_tape = _id_in_tape(tape_body, id)
+            let evidence = if has_tape { "found" } else { "missing" }
+            let mut verdict = declared
+            if declared == "held" && !has_tape { verdict = "violated_no_evidence" }
+            if declared == "" && has_tape { verdict = "held_via_tape" }
+            if declared == "" && !has_tape { verdict = "unknown" }
+            rows.push([id, text, declared, evidence, verdict])
+        }
+        i = i + 1
+    }
+    return rows
+}
+
+fn _render_matrix(rows: [[string]]) -> string {
+    let mut out = "id              declared    evidence    verdict\n"
+    out =       out + "────────────────────────────────────────────────────────\n"
+    let mut i: i64 = 0
+    while i < rows.len() {
+        let r = rows[i]
+        let mut id = r[0]
+        while id.len() < 16 { id = id + " " }
+        let mut d = r[2]
+        while d.len() < 12 { d = d + " " }
+        let mut e = r[3]
+        while e.len() < 12 { e = e + " " }
+        out = out + id + d + e + r[4] + "\n"
+        if r[1].len() > 0 { out = out + "                  \"" + r[1] + "\"\n" }
+        i = i + 1
+    }
+    return out
+}
+
+fn _any_violated(rows: [[string]]) -> bool {
+    let mut i: i64 = 0
+    while i < rows.len() {
+        let v = rows[i][4]
+        if v == "violated" || v == "violated_no_evidence" { return true }
+        i = i + 1
+    }
+    return false
+}
+
+fn _selftest() -> i64 {
+    let md = "# HARNESS+TOOL+PROVIDER\n\n## Constituent conditions\n\n" +
+             "@D c1 := \"HARNESS.input_loop\" :: meta-domain [d=2026-05-13 ok]\n" +
+             "@D c2 := \"HARNESS.streaming\" :: meta-domain [d=2026-05-13 ok]\n" +
+             "@D c3 := \"TOOL.read_write_edit\" :: meta-domain [d=2026-05-13 ok]\n" +
+             "@D m1 := \"joint_turn_closes\" :: meta-domain [d=2026-05-13 ok]\n" +
+             "\n## Log\n"
+    let tape = "@D c1 := \"HARNESS.input_loop\" :: meta-domain [d=2026-05-13 ok]\n" +
+               "@D c2 := \"HARNESS.streaming\" :: meta-domain [d=2026-05-13 ok]\n" +
+               "@D m1 := \"joint_turn_closes\" :: meta-domain [d=2026-05-13 ok]\n"
+    let rows = tape_meta_verify_matrix(md, tape)
+    if rows.len() != 4 { return 1 }
+    // c1 c2 m1 → held_via_tape or held; c3 → violated_no_evidence (declared held but no tape entry)
+    let mut c3_seen = false
+    let mut i: i64 = 0
+    while i < rows.len() {
+        let r = rows[i]
+        if r[0] == "c3" {
+            c3_seen = true
+            if r[4] != "violated_no_evidence" { return 1 }
+        }
+        i = i + 1
+    }
+    if !c3_seen { return 1 }
+    if !_any_violated(rows) { return 1 }
+    let r2 = _render_matrix(rows)
+    if r2.find("c1") < 0 || r2.find("c3") < 0 || r2.find("violated") < 0 { return 1 }
+    return 0
+}
+
+pub fn main() -> i64 {
+    let argv = args()
+    if argv.len() < 2 { eprintln("usage: tape_meta_verify <META.md> <META.tape> | --selftest") ; return 3 }
+    let arg1 = argv[1]
+    if arg1 == "--selftest" {
+        let rc = _selftest()
+        if rc == 0 { println("OK: tape_meta_verify selftest passed") ; return 0 }
+        eprintln("FAIL: tape_meta_verify selftest rc=" + str(rc))
+        return 1
+    }
+    if argv.len() < 3 { eprintln("usage: tape_meta_verify <META.md> <META.tape>") ; return 3 }
+    let md_path   = argv[1]
+    let tape_path = argv[2]
+    if !file_exists(md_path)   { eprintln("no such md: " + md_path) ; return 2 }
+    if !file_exists(tape_path) { eprintln("no such tape: " + tape_path) ; return 2 }
+    let rows = tape_meta_verify_matrix(fs_read_text(md_path), fs_read_text(tape_path))
+    println(_render_matrix(rows))
+    if _any_violated(rows) { return 4 }
+    return 0
+}

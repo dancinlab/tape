@@ -1,0 +1,87 @@
+// ══════════════════════════════════════════════════════════════
+// tape_dedup.hexa — duplicate (type, id) detector
+//
+// @module(slug="tape_dedup", desc="Scan a tape for duplicate (type, id) headers. Same (T, id) appearing more than once is a violation of tape_absorb's idempotency check (the legitimate exception is streaming @A deltas — `tape_compact` is responsible for folding those before dedup runs).")
+// @usage(hexa algorithms/tape_dedup.hexa --selftest)
+// @usage(hexa algorithms/tape_dedup.hexa <path>)
+// @exit_codes(0=no-duplicates, 1=selftest-fail, 2=io-error, 3=bad-args, 4=duplicates-found)
+// ══════════════════════════════════════════════════════════════
+
+fn _is_header(line: string) -> bool {
+    if line.len() < 2 { return false }
+    if line.substring(0, 1) != "@" { return false }
+    let known = "SUATRHDKPI?"
+    let t = line.substring(1, 2)
+    let mut i: i64 = 0
+    while i < known.len() {
+        if known.substring(i, i + 1) == t { return true }
+        i = i + 1
+    }
+    return false
+}
+
+fn _key(line: string) -> string {
+    if !_is_header(line) { return "" }
+    let t = line.substring(1, 2)
+    let mut i: i64 = 3
+    while i < line.len() {
+        if line.substring(i, i + 1) == " " {
+            return t + ":" + line.substring(3, i)
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+// Returns the list of (type:id) keys that appear more than once.
+fn tape_dedup_find(body: string) -> [string] {
+    let lines = body.split("\n")
+    let mut seen: [string] = []
+    let mut counts: [i64] = []
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let k = _key(lines[i])
+        if k.len() > 0 {
+            let mut found = false
+            let mut s: i64 = 0
+            while s < seen.len() {
+                if seen[s] == k { counts[s] = counts[s] + 1 ; found = true }
+                s = s + 1
+            }
+            if !found {
+                seen.push(k)
+                counts.push(1)
+            }
+        }
+        i = i + 1
+    }
+    let mut dups: [string] = []
+    let mut j: i64 = 0
+    while j < seen.len() {
+        if counts[j] > 1 { dups.push(seen[j]) }
+        j = j + 1
+    }
+    return dups
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+    let clean = ""
+        + "@S start s001 :: session [T0 N0 ok]\n"
+        + "@U u001 = \"hi\" :: harness [T1 N1 ok]\n"
+        + "@A a001 :: harness [T1 N2 ok]\n"
+    let dups_clean = tape_dedup_find(clean)
+    if dups_clean.len() != 0 { eprintln("FAIL: clean tape reported dups: " + to_string(dups_clean.len())) ; fail = fail + 1 }
+    let dirty = clean + "@U u001 = \"hi-again\" :: harness [T2 N5 ok]\n"
+    let dups_dirty = tape_dedup_find(dirty)
+    if dups_dirty.len() != 1 { eprintln("FAIL: dirty tape expected 1 dup, got " + to_string(dups_dirty.len())) ; fail = fail + 1 }
+    if dups_dirty.len() > 0 {
+        if dups_dirty[0] != "U:u001" { eprintln("FAIL: expected dup U:u001, got " + dups_dirty[0]) ; fail = fail + 1 }
+    }
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_dedup] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_dedup] OK")
+exit(0)

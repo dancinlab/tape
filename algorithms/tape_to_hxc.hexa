@@ -1,0 +1,79 @@
+// ══════════════════════════════════════════════════════════════
+// tape_to_hxc.hexa — wrap a .tape in HXC byte-canonical wire for cross-host ship
+//
+// @module(slug="tape_to_hxc", desc="Promotion adapter: produce an HXC v2 byte-canonical wire wrap of a .tape suitable for cross-host transport with KV-cache stability preserved. v1 scaffold: emits the HXC v2 header (`# schema:tape-v1`, `# rows:<n>`) + per-block row dump; full A4 structural / A10 varint compression is PASS-2 (delegated to hxc/algorithms/hxc_composite_chain.hexa). The intent is that a receiving host that unwraps the .hxc back to .tape sees byte-identical content, so a provider KV cache on the receiver hits on a re-submit.")
+// @usage(hexa algorithms/tape_to_hxc.hexa --selftest)
+// @usage(hexa algorithms/tape_to_hxc.hexa <tape.in> <wire.hxc.out>)
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args)
+//
+// TODO PASS2 — see DESIGN.md §Open-questions:
+//   - delegate compression to hxc/algorithms/hxc_composite_chain.hexa
+//   - emit `# rows:<n>` header with the count of @<type> blocks
+//   - re-use n6's section-divider convention for cross-format readability
+//   - round-trip selftest: tape→hxc→tape, assert bytes_eq with original
+// ══════════════════════════════════════════════════════════════
+
+fn _is_header(line: string) -> bool {
+    if line.len() < 2 { return false }
+    if line.substring(0, 1) != "@" { return false }
+    let known = "SUATRHDKPI?"
+    let t = line.substring(1, 2)
+    let mut i: i64 = 0
+    while i < known.len() {
+        if known.substring(i, i + 1) == t { return true }
+        i = i + 1
+    }
+    return false
+}
+
+// Count event blocks for the `# rows:<n>` header.
+fn tape_to_hxc_row_count(body: string) -> i64 {
+    let lines = body.split("\n")
+    let mut n: i64 = 0
+    let mut i: i64 = 0
+    while i < lines.len() {
+        if _is_header(lines[i]) { n = n + 1 }
+        i = i + 1
+    }
+    return n
+}
+
+// PASS-1 scaffold: emit the HXC v2 header + un-compressed block dump.
+// The wrap is byte-canonical: same input → same bytes. Compression is
+// PASS-2 (delegated to hxc_composite_chain).
+fn tape_to_hxc_wrap_scaffold(body: string) -> string {
+    let rows = tape_to_hxc_row_count(body)
+    let mut buf = ""
+    buf = buf + "# hxc-v2\n"
+    buf = buf + "# schema:tape-v1\n"
+    buf = buf + "# rows:" + to_string(rows) + "\n"
+    buf = buf + "# tree:0 — placeholder (PASS-2: replace with A4 structural-dedup header)\n"
+    buf = buf + "\n"
+    // dump the tape body verbatim — preserves byte-canonical content
+    buf = buf + body
+    if buf.len() > 0 {
+        if buf.substring(buf.len() - 1, buf.len()) != "\n" { buf = buf + "\n" }
+    }
+    return buf
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+    let fixture = ""
+        + "@S start s001 :: session [T0 N0 ok]\n"
+        + "@U u001 = \"hi\" :: harness [T1 N1 ok]\n"
+        + "@A a001 :: harness [T1 N2 ok]\n"
+    let nrows = tape_to_hxc_row_count(fixture)
+    if nrows != 3 { eprintln("FAIL: expected 3 rows, got " + to_string(nrows)) ; fail = fail + 1 }
+    let wrap = tape_to_hxc_wrap_scaffold(fixture)
+    if !wrap.contains("# hxc-v2") { eprintln("FAIL: missing hxc-v2 magic") ; fail = fail + 1 }
+    if !wrap.contains("# schema:tape-v1") { eprintln("FAIL: missing schema tag") ; fail = fail + 1 }
+    if !wrap.contains("# rows:3") { eprintln("FAIL: missing rows count") ; fail = fail + 1 }
+    if !wrap.contains("@S start s001") { eprintln("FAIL: body content lost") ; fail = fail + 1 }
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_to_hxc] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_to_hxc] OK")
+exit(0)

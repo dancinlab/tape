@@ -1,0 +1,161 @@
+// ══════════════════════════════════════════════════════════════
+// tape_render_identity.hexa — identity.tape → system-prompt block projection (v1.1)
+//
+// @module(slug="tape_render_identity", desc="Read ~/.wilson/identity.tape and render the canonical `## Identity` system-prompt block (slot #1 of wilson's session_start fold). Replaces v0's hard-coded one-liner `_identity_block()`. Walks all `@I` events, keeps the latest claim per sub-kind (birth/scope/principle/version/succession), folds them into a numbered block.")
+// @usage(hexa algorithms/tape_render_identity.hexa --selftest)
+// @usage(hexa algorithms/tape_render_identity.hexa <identity.tape>)
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args, 4=no-birth-claim)
+// ══════════════════════════════════════════════════════════════
+
+fn _is_i_header(line: string) -> bool {
+    if line.len() < 3 { return false }
+    return line.substring(0, 2) == "@I"
+}
+
+// Parse `@I <subkind> [<id>] :: identity [d=<date> ok|superseded]`
+// Returns [subkind, id, date, state]. id is "" when omitted.
+fn _i_parts(line: string) -> [string] {
+    let mut out = ["", "", "", ""]
+    if !_is_i_header(line) { return out }
+    // strip "@I "
+    let rest = line.substring(3, line.len())
+    // split at " :: "
+    let dd = rest.find(" :: ")
+    if dd < 0 { return out }
+    let left = rest.substring(0, dd)
+    let right = rest.substring(dd + 4, rest.len())
+    // left = "<subkind>" or "<subkind> <id>" or "<subkind> = <expr>"
+    let sp = left.find(" ")
+    if sp < 0 {
+        out[0] = left
+    } else {
+        out[0] = left.substring(0, sp)
+        let after = left.substring(sp + 1, left.len())
+        if after.substring(0, 2) != "= " { out[1] = after }
+    }
+    // right = "identity [<grade>]" — extract d=... and state
+    let lb = right.find("[")
+    let rb = right.find("]")
+    if lb > -1 && rb > lb {
+        let grade = right.substring(lb + 1, rb)
+        let toks = grade.split(" ")
+        let mut i: i64 = 0
+        while i < toks.len() {
+            let tok = toks[i]
+            if tok.len() > 1 && tok.substring(0, 2) == "d=" { out[2] = tok.substring(2, tok.len()) }
+            if tok == "ok" || tok == "superseded" { out[3] = tok }
+            i = i + 1
+        }
+    }
+    return out
+}
+
+// Collect continuation lines (indent=2) until next column-0 line or EOF.
+fn _continuations(lines: [string], from: i64) -> [string] {
+    let mut out: [string] = []
+    let mut i: i64 = from + 1
+    while i < lines.len() {
+        let ln = lines[i]
+        if ln.len() < 2 { i = i + 1 ; continue }
+        if ln.substring(0, 2) != "  " { return out }
+        out.push(ln.substring(2, ln.len()))
+        i = i + 1
+    }
+    return out
+}
+
+pub fn tape_render_identity_block(body: string) -> string {
+    let lines = body.split("\n")
+    // Keep latest claim per subkind — later overrides earlier (append-only, latest wins).
+    let mut sub_birth = ""
+    let mut sub_scope: [string] = []
+    let mut sub_principle: [string] = []
+    let mut sub_origin: [string] = []
+    let mut sub_version = ""
+    let mut have_birth = false
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if !_is_i_header(ln) { i = i + 1 ; continue }
+        let p = _i_parts(ln)
+        let subkind = p[0]
+        let state = p[3]
+        if state == "superseded" { i = i + 1 ; continue }
+        let conts = _continuations(lines, i)
+        if subkind == "birth"      { sub_birth = ln ; have_birth = true }
+        if subkind == "scope"      { sub_scope = conts }
+        if subkind == "principle"  { sub_principle = conts }
+        if subkind == "origin"     { sub_origin = conts }
+        if subkind == "version"    { sub_version = ln }
+        i = i + 1
+    }
+    if !have_birth { return "" }
+    let mut out = "## Identity\n\n"
+    out = out + "You are wilson, a hexa-native AI coding agent.\n"
+    if sub_version.len() > 0 { out = out + "Build: " + sub_version + "\n" }
+    if sub_origin.len() > 0 {
+        out = out + "\nOrigin:\n"
+        let mut k: i64 = 0
+        while k < sub_origin.len() { out = out + "  " + sub_origin[k] + "\n" ; k = k + 1 }
+    }
+    if sub_scope.len() > 0 {
+        out = out + "\nScope:\n"
+        let mut k: i64 = 0
+        while k < sub_scope.len() { out = out + "  " + sub_scope[k] + "\n" ; k = k + 1 }
+    }
+    if sub_principle.len() > 0 {
+        out = out + "\nPrinciples:\n"
+        let mut k: i64 = 0
+        while k < sub_principle.len() { out = out + "  " + sub_principle[k] + "\n" ; k = k + 1 }
+    }
+    out = out + "\nBe concise; use the registered tools."
+    return out
+}
+
+fn _selftest() -> i64 {
+    let sample = "@I birth wilson :: identity [d=2026-05-13 ok]\n" +
+                 "  kind = \"hexa-native AI coding agent\"\n" +
+                 "  succession_of = hive\n" +
+                 "\n" +
+                 "@I scope :: identity [d=2026-05-13 ok]\n" +
+                 "  <- birth\n" +
+                 "  capabilities = [\"read\",\"write\",\"edit\",\"bash\"]\n" +
+                 "  refuses = [\"mass_targeting\"]\n" +
+                 "\n" +
+                 "@I principle :: identity [d=2026-05-13 ok]\n" +
+                 "  principles = [\"ai-native\",\"hexa-first\"]\n" +
+                 "\n" +
+                 "@I version v0_0_1 :: identity [d=2026-05-13 v=0.0.1 build=Darwin-arm64 ok]\n"
+    let block = tape_render_identity_block(sample)
+    if block.len() < 1 { return 1 }
+    if block.find("You are wilson") < 0 { return 1 }
+    if block.find("hexa-native") < 0 { return 1 }
+    if block.find("capabilities") < 0 { return 1 }
+    if block.find("ai-native") < 0 { return 1 }
+    if block.find("v0.0.1") < 0 { return 1 }
+    // Test no-birth → empty
+    let empty = tape_render_identity_block("@I scope :: identity [d=2026-05-13 ok]\n  capabilities = []\n")
+    if empty.len() != 0 { return 1 }
+    return 0
+}
+
+pub fn main() -> i64 {
+    let argv = args()
+    if argv.len() < 2 { eprintln("usage: tape_render_identity <path> | --selftest") ; return 3 }
+    let arg1 = argv[1]
+    if arg1 == "--selftest" {
+        let rc = _selftest()
+        if rc == 0 { println("OK: tape_render_identity selftest passed") ; return 0 }
+        eprintln("FAIL: tape_render_identity selftest rc=" + str(rc))
+        return 1
+    }
+    if !file_exists(arg1) { eprintln("no such file: " + arg1) ; return 2 }
+    let body = fs_read_text(arg1)
+    let block = tape_render_identity_block(body)
+    if block.len() == 0 {
+        eprintln("no @I birth claim found in " + arg1)
+        return 4
+    }
+    println(block)
+    return 0
+}

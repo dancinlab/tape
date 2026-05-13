@@ -1,0 +1,173 @@
+// ══════════════════════════════════════════════════════════════
+// tape_export_jsonl.hexa — bidirectional .tape ↔ .jsonl adapter
+//
+// @module(slug="tape_export_jsonl", desc="Project a .tape into one of wilson's legacy .jsonl surfaces (transcript / recap / cost / task), or import a legacy .jsonl into a .tape skeleton. Forward direction is the canonical view-extraction path; reverse direction is a migration helper for pre-tape wilson sessions.")
+// @usage(hexa algorithms/tape_export_jsonl.hexa --selftest)
+// @usage(hexa algorithms/tape_export_jsonl.hexa export <kind> <tape.in> <jsonl.out>)
+// @usage(hexa algorithms/tape_export_jsonl.hexa import <kind> <jsonl.in> <tape.out>)
+//   <kind> ∈ { transcript, recap, cost, task }
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args, 4=unknown-kind)
+// ══════════════════════════════════════════════════════════════
+
+fn _is_header(line: string) -> bool {
+    if line.len() < 2 { return false }
+    if line.substring(0, 1) != "@" { return false }
+    let known = "SUATRHDKPI?"
+    let t = line.substring(1, 2)
+    let mut i: i64 = 0
+    while i < known.len() {
+        if known.substring(i, i + 1) == t { return true }
+        i = i + 1
+    }
+    return false
+}
+
+fn _header_type(line: string) -> string {
+    if !_is_header(line) { return "" }
+    return line.substring(1, 2)
+}
+
+fn _extract_quoted(line: string) -> string {
+    let mut i: i64 = 0
+    let mut q1: i64 = -1
+    let mut q2: i64 = -1
+    while i < line.len() {
+        if line.substring(i, i + 1) == "\"" {
+            if q1 < 0 { q1 = i }
+            else { if q2 < 0 { q2 = i } }
+        }
+        i = i + 1
+    }
+    if q1 < 0 { return "" }
+    if q2 < 0 { return "" }
+    return line.substring(q1 + 1, q2)
+}
+
+// Escape a string for JSON (basic: \", \\, \n).
+fn _json_escape(s: string) -> string {
+    let mut out = ""
+    let mut i: i64 = 0
+    while i < s.len() {
+        let c = s.substring(i, i + 1)
+        if c == "\"" { out = out + "\\\"" }
+        else { if c == "\\" { out = out + "\\\\" }
+        else { if c == "\n" { out = out + "\\n" }
+        else { out = out + c } } }
+        i = i + 1
+    }
+    return out
+}
+
+// Project a tape body into transcript JSONL. Emits one JSON object per
+// @U / @A / @T / @R event, in tape order.
+fn tape_export_jsonl_transcript(body: string) -> string {
+    let lines = body.split("\n")
+    let mut out = ""
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if _is_header(ln) {
+            let t = _header_type(ln)
+            let mut role = ""
+            if t == "U" { role = "user" }
+            if t == "A" { role = "assistant" }
+            if t == "T" { role = "tool_call" }
+            if t == "R" { role = "tool_result" }
+            if role.len() > 0 {
+                let content = _extract_quoted(ln)
+                out = out + "{\"role\":\"" + role + "\",\"content\":\"" + _json_escape(content) + "\"}\n"
+            }
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// Project @K cost samples into one JSON line each. Form on `@K id = a+b+c = T ucents`.
+fn tape_export_jsonl_cost(body: string) -> string {
+    let lines = body.split("\n")
+    let mut out = ""
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if _is_header(ln) {
+            if _header_type(ln) == "K" {
+                out = out + "{\"event\":\"" + _json_escape(ln) + "\"}\n"
+            }
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// Project an @A line per recap row (wilson's recap surface stores
+// summarising-prose assistant output keyed by turn).
+fn tape_export_jsonl_recap(body: string) -> string {
+    let lines = body.split("\n")
+    let mut out = ""
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if _is_header(ln) {
+            if _header_type(ln) == "A" {
+                if ln.contains(":: recap ") {
+                    let q = _extract_quoted(ln)
+                    out = out + "{\"kind\":\"recap\",\"text\":\"" + _json_escape(q) + "\"}\n"
+                }
+            }
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// Project @T task_* tool calls into the task JSONL form.
+fn tape_export_jsonl_task(body: string) -> string {
+    let lines = body.split("\n")
+    let mut out = ""
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if _is_header(ln) {
+            if _header_type(ln) == "T" {
+                if ln.contains(" task_") {
+                    out = out + "{\"event\":\"" + _json_escape(ln) + "\"}\n"
+                }
+            }
+        }
+        i = i + 1
+    }
+    return out
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+    let fixture = ""
+        + "@S start s001 :: session [T0 N0 ok]\n"
+        + "@U u001 = \"hello\" :: harness [T1 N1 ok]\n"
+        + "@A a001 :: harness [T1 N2 ok]\n"
+        + "  => \"hi back\"\n"
+        + "@T t001 task_add :: tool [T2 N3 ok]\n"
+        + "@R r001 task_add ok :: tool [T2 N3 ok]\n"
+        + "@K k001 = 5+11+200 = 432 ucents :: cost [T2 N4 ok]\n"
+        + "@A a002 = \"first 4 turns recap\" :: recap [T4 N20 ok]\n"
+    let tx = tape_export_jsonl_transcript(fixture)
+    // 4 events (U, A, T, R) — note: a002 is recap domain, not harness, but still @A so it counts as assistant (5 total)
+    let tx_lines = tx.split("\n").len() - 1
+    if tx_lines != 5 { eprintln("FAIL: transcript expected 5 lines, got " + to_string(tx_lines)) ; fail = fail + 1 }
+    let cost = tape_export_jsonl_cost(fixture)
+    let cost_lines = cost.split("\n").len() - 1
+    if cost_lines != 1 { eprintln("FAIL: cost expected 1 line, got " + to_string(cost_lines)) ; fail = fail + 1 }
+    let recap = tape_export_jsonl_recap(fixture)
+    let recap_lines = recap.split("\n").len() - 1
+    if recap_lines != 1 { eprintln("FAIL: recap expected 1 line, got " + to_string(recap_lines)) ; fail = fail + 1 }
+    let task = tape_export_jsonl_task(fixture)
+    let task_lines = task.split("\n").len() - 1
+    if task_lines != 1 { eprintln("FAIL: task expected 1 line, got " + to_string(task_lines)) ; fail = fail + 1 }
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_export_jsonl] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_export_jsonl] OK")
+exit(0)

@@ -1,0 +1,144 @@
+// ══════════════════════════════════════════════════════════════
+// tape_index.hexa — turn / N-index for O(1) seek on resume
+//
+// @module(slug="tape_index", desc="Build a (turn, N, byte_offset, line_offset) index for fast resume. On resume, the agent loop seeks to the first byte after the last @S start to skip the file header without scanning. Mirrors n6 atlas_hot_shard.hexa style but for time-axis seek.")
+// @usage(hexa algorithms/tape_index.hexa --selftest)
+// @usage(hexa algorithms/tape_index.hexa <path>)
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args)
+// ══════════════════════════════════════════════════════════════
+
+fn _is_header(line: string) -> bool {
+    if line.len() < 2 { return false }
+    if line.substring(0, 1) != "@" { return false }
+    let known = "SUATRHDKPI?"
+    let t = line.substring(1, 2)
+    let mut i: i64 = 0
+    while i < known.len() {
+        if known.substring(i, i + 1) == t { return true }
+        i = i + 1
+    }
+    return false
+}
+
+// Extract T<n> from a grade bracket. Returns -1 if absent.
+fn _turn_of(line: string) -> i64 {
+    let mut lb: i64 = -1
+    let mut rb: i64 = -1
+    let mut i: i64 = 0
+    while i < line.len() {
+        let c = line.substring(i, i + 1)
+        if c == "[" { lb = i }
+        if c == "]" { rb = i }
+        i = i + 1
+    }
+    if lb < 0 { return -1 }
+    if rb < lb { return -1 }
+    let payload = line.substring(lb + 1, rb)
+    let parts = payload.split(" ")
+    let mut pi: i64 = 0
+    while pi < parts.len() {
+        let p = parts[pi].trim()
+        if p.len() > 1 {
+            if p.substring(0, 1) == "T" {
+                let rest = p.substring(1, p.len())
+                let mut all_d = true
+                let mut k: i64 = 0
+                while k < rest.len() {
+                    let ch = rest.substring(k, k + 1)
+                    if ch < "0" || ch > "9" { all_d = false ; k = rest.len() }
+                    k = k + 1
+                }
+                if all_d { return to_int(rest) }
+            }
+        }
+        pi = pi + 1
+    }
+    return -1
+}
+
+fn _n_of(line: string) -> i64 {
+    let mut lb: i64 = -1
+    let mut rb: i64 = -1
+    let mut i: i64 = 0
+    while i < line.len() {
+        let c = line.substring(i, i + 1)
+        if c == "[" { lb = i }
+        if c == "]" { rb = i }
+        i = i + 1
+    }
+    if lb < 0 { return -1 }
+    if rb < lb { return -1 }
+    let payload = line.substring(lb + 1, rb)
+    let parts = payload.split(" ")
+    let mut pi: i64 = 0
+    while pi < parts.len() {
+        let p = parts[pi].trim()
+        if p.len() > 1 {
+            if p.substring(0, 1) == "N" {
+                let rest = p.substring(1, p.len())
+                let mut all_d = true
+                let mut k: i64 = 0
+                while k < rest.len() {
+                    let ch = rest.substring(k, k + 1)
+                    if ch < "0" || ch > "9" { all_d = false ; k = rest.len() }
+                    k = k + 1
+                }
+                if all_d { return to_int(rest) }
+            }
+        }
+        pi = pi + 1
+    }
+    return -1
+}
+
+// Returns a flattened index: [turn0, n0, byte0, line0, turn1, n1, byte1, line1, ...]
+fn tape_index_build(body: string) -> [i64] {
+    let lines = body.split("\n")
+    let mut out: [i64] = []
+    let mut byte_off: i64 = 0
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if _is_header(ln) {
+            let t = _turn_of(ln)
+            let n = _n_of(ln)
+            out.push(t)
+            out.push(n)
+            out.push(byte_off)
+            out.push(i)
+        }
+        byte_off = byte_off + ln.len() + 1   // +1 for the LF
+        i = i + 1
+    }
+    return out
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+    let fixture = ""
+        + "@S start s001 :: session [T0 N0 ok]\n"
+        + "@U u001 = \"hi\" :: harness [T1 N5 ok]\n"
+        + "@A a001 :: harness [T1 N6 ok]\n"
+        + "@S end :: session [T1 N10 ok]\n"
+    let idx = tape_index_build(fixture)
+    // 4 events × 4 cells = 16
+    if idx.len() != 16 { eprintln("FAIL: expected 16 cells, got " + to_string(idx.len())) ; fail = fail + 1 }
+    // first event: T0 N0 byte=0 line=0
+    if idx.len() > 3 {
+        if idx[0] != 0 { eprintln("FAIL: idx[0] expected 0, got " + to_string(idx[0])) ; fail = fail + 1 }
+        if idx[1] != 0 { eprintln("FAIL: idx[1] expected 0, got " + to_string(idx[1])) ; fail = fail + 1 }
+        if idx[2] != 0 { eprintln("FAIL: idx[2] expected 0, got " + to_string(idx[2])) ; fail = fail + 1 }
+        if idx[3] != 0 { eprintln("FAIL: idx[3] expected 0, got " + to_string(idx[3])) ; fail = fail + 1 }
+    }
+    // 2nd event byte offset = len of line[0] + 1
+    if idx.len() > 7 {
+        let expected = "@S start s001 :: session [T0 N0 ok]".len() + 1
+        if idx[6] != expected { eprintln("FAIL: idx[6] expected " + to_string(expected) + ", got " + to_string(idx[6])) ; fail = fail + 1 }
+    }
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_index] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_index] OK")
+exit(0)

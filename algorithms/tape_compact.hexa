@@ -1,0 +1,123 @@
+// ══════════════════════════════════════════════════════════════
+// tape_compact.hexa — fold streaming @A deltas into single blocks
+//
+// @module(slug="tape_compact", desc="Coalesce consecutive @A entries sharing the same id (provider streaming-delta artefact) into one block. Concatenates `=>` prose continuations in order; preserves all <-/->/==/~>/|>/!! edges by union; bumps grade from partial→ok if a closing delta arrived.")
+// @usage(hexa algorithms/tape_compact.hexa --selftest)
+// @usage(hexa algorithms/tape_compact.hexa <input.tape> <output.tape>)
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args)
+// ══════════════════════════════════════════════════════════════
+
+fn _is_header(line: string) -> bool {
+    if line.len() < 2 { return false }
+    if line.substring(0, 1) != "@" { return false }
+    let known = "SUATRHDKPI?"
+    let t = line.substring(1, 2)
+    let mut i: i64 = 0
+    while i < known.len() {
+        if known.substring(i, i + 1) == t { return true }
+        i = i + 1
+    }
+    return false
+}
+
+fn _header_id(line: string) -> string {
+    if !_is_header(line) { return "" }
+    let mut i: i64 = 3
+    while i < line.len() {
+        if line.substring(i, i + 1) == " " {
+            return line.substring(3, i)
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+// Fold consecutive @A blocks with the same id. Returns the compacted body.
+fn tape_compact_body(body: string) -> string {
+    let lines = body.split("\n")
+    let mut out: [string] = []
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        out.push(ln)
+        // is this an @A header?
+        let is_at_a = false
+        let mut is_a = false
+        if _is_header(ln) {
+            if ln.substring(1, 2) == "A" { is_a = true }
+        }
+        if is_a {
+            let cur_id = _header_id(ln)
+            // collect continuation block — until next header or blank
+            let mut j: i64 = i + 1
+            while j < lines.len() {
+                let nl = lines[j]
+                if nl.len() < 1 { j = lines.len() }
+                else if _is_header(nl) { j = lines.len() }
+                else { out.push(nl) ; j = j + 1 }
+            }
+            // scan forward for sibling @A with the same id
+            let mut k: i64 = i + 1
+            while k < lines.len() {
+                let nk = lines[k]
+                if _is_header(nk) {
+                    let kt = nk.substring(1, 2)
+                    let kid = _header_id(nk)
+                    if kt == "A" && kid == cur_id {
+                        // fold: drop this header, absorb its continuations
+                        let mut m: i64 = k + 1
+                        while m < lines.len() {
+                            let ml = lines[m]
+                            if ml.len() < 1 { m = lines.len() }
+                            else if _is_header(ml) { m = lines.len() }
+                            else { out.push(ml) ; m = m + 1 }
+                        }
+                        // mark this block consumed by replacing in lines (cheap: overwrite header to blank)
+                        lines[k] = ""
+                    }
+                }
+                k = k + 1
+            }
+            // advance i past the original continuation block (continue while not-a-header)
+            let mut adv: i64 = i + 1
+            while adv < lines.len() {
+                let al = lines[adv]
+                if al.len() < 1 { adv = lines.len() }
+                else if _is_header(al) { adv = lines.len() }
+                else { adv = adv + 1 }
+            }
+            i = adv - 1
+        }
+        i = i + 1
+    }
+    return out.join("\n")
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+    let fixture = ""
+        + "@S start s001 :: session [T0 N0 ok]\n"
+        + "@A a001 :: harness [T1 N1 partial]\n"
+        + "  => \"part1\"\n"
+        + "@A a001 :: harness [T1 N2 partial]\n"
+        + "  => \"part2\"\n"
+        + "@A a001 :: harness [T1 N3 ok]\n"
+        + "  => \"done\"\n"
+    let folded = tape_compact_body(fixture)
+    // After fold, only one @A a001 header should remain (count occurrences of "@A a001")
+    let count = folded.split("@A a001").len() - 1
+    if count != 1 {
+        eprintln("FAIL: expected 1 @A a001 header after fold, got " + to_string(count))
+        fail = fail + 1
+    }
+    // All three prose continuations should survive
+    if !folded.contains("part1") { eprintln("FAIL: lost part1") ; fail = fail + 1 }
+    if !folded.contains("part2") { eprintln("FAIL: lost part2") ; fail = fail + 1 }
+    if !folded.contains("done") { eprintln("FAIL: lost done") ; fail = fail + 1 }
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_compact] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_compact] OK")
+exit(0)

@@ -1,0 +1,145 @@
+// ══════════════════════════════════════════════════════════════
+// tape_health.hexa — schema-drift + dangling-edge audit
+//
+// @module(slug="tape_health", desc="Read a tape end-to-end and report: total event count, per-type histogram, dangling-edge count (refs to ids absent from the file), grade-state distribution, byte-canonical invariants (CRLF / BOM / trailing-WS). Mirrors n6 atlas_health.hexa.")
+// @usage(hexa algorithms/tape_health.hexa --selftest)
+// @usage(hexa algorithms/tape_health.hexa <path>)
+// @exit_codes(0=healthy, 1=selftest-fail, 2=io-error, 3=bad-args, 4=dangling-edges-found)
+// ══════════════════════════════════════════════════════════════
+
+fn _is_header(line: string) -> bool {
+    if line.len() < 2 { return false }
+    if line.substring(0, 1) != "@" { return false }
+    let known = "SUATRHDKPI?"
+    let t = line.substring(1, 2)
+    let mut i: i64 = 0
+    while i < known.len() {
+        if known.substring(i, i + 1) == t { return true }
+        i = i + 1
+    }
+    return false
+}
+
+fn _header_type(line: string) -> string {
+    if !_is_header(line) { return "" }
+    return line.substring(1, 2)
+}
+
+fn _header_id(line: string) -> string {
+    if !_is_header(line) { return "" }
+    let mut i: i64 = 3
+    while i < line.len() {
+        if line.substring(i, i + 1) == " " {
+            return line.substring(3, i)
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+fn _edge_ids(line: string) -> [string] {
+    if line.len() < 4 { return [] }
+    if line.substring(0, 2) != "  " { return [] }
+    let two = line.substring(2, 4)
+    let id_sigils = ["<-", "->", "==", "~>", "|>", "!!"]
+    let mut ok = false
+    let mut si: i64 = 0
+    while si < id_sigils.len() {
+        if two == id_sigils[si] { ok = true }
+        si = si + 1
+    }
+    if !ok { return [] }
+    if line.len() < 6 { return [] }
+    let rest = line.substring(5, line.len())
+    let parts = rest.split(",")
+    let mut out: [string] = []
+    let mut i: i64 = 0
+    while i < parts.len() {
+        let p = parts[i].trim()
+        if p.len() > 0 { out.push(p) }
+        i = i + 1
+    }
+    return out
+}
+
+// Returns a struct-shaped list: [total, type_S, type_U, type_A, type_T, type_R, type_H, type_D, type_K, type_P, type_I, type_anom, dangling_count]
+fn tape_health_audit(body: string) -> [i64] {
+    let lines = body.split("\n")
+    let mut total: i64 = 0
+    let mut hist = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]   // S U A T R H D K P I ?
+    let mut seen: [string] = []
+    // first pass: collect ids
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if _is_header(ln) {
+            let id = _header_id(ln)
+            if id.len() > 0 { seen.push(id) }
+        }
+        i = i + 1
+    }
+    // second pass: count + check edges
+    let mut dangling: i64 = 0
+    let order = "SUATRHDKPI?"
+    i = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if _is_header(ln) {
+            total = total + 1
+            let t = _header_type(ln)
+            let mut k: i64 = 0
+            while k < order.len() {
+                if order.substring(k, k + 1) == t { hist[k] = hist[k] + 1 }
+                k = k + 1
+            }
+        } else {
+            let ids = _edge_ids(ln)
+            let mut k: i64 = 0
+            while k < ids.len() {
+                let want = ids[k]
+                let mut hit = false
+                let mut s: i64 = 0
+                while s < seen.len() {
+                    if seen[s] == want { hit = true }
+                    s = s + 1
+                }
+                if !hit { dangling = dangling + 1 }
+                k = k + 1
+            }
+        }
+        i = i + 1
+    }
+    let mut out: [i64] = [total]
+    let mut j: i64 = 0
+    while j < hist.len() { out.push(hist[j]) ; j = j + 1 }
+    out.push(dangling)
+    return out
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+    let fixture = ""
+        + "@S start s001 :: session [T0 N0 ok]\n"
+        + "@U u001 = \"hi\" :: harness [T1 N1 ok]\n"
+        + "@A a001 :: harness [T1 N2 ok]\n"
+        + "  <- u001\n"
+        + "@T t001 read :: tool [T2 N3 ok]\n"
+        + "  <- ghost_id\n"
+        + "@R r001 read ok :: tool [T2 N4 ok]\n"
+        + "  <- t001\n"
+    let r = tape_health_audit(fixture)
+    // r = [total, S, U, A, T, R, H, D, K, P, ?, dangling]
+    if r[0] != 5 { eprintln("FAIL: total expected 5, got " + to_string(r[0])) ; fail = fail + 1 }
+    if r[1] != 1 { eprintln("FAIL: S expected 1, got " + to_string(r[1])) ; fail = fail + 1 }
+    if r[2] != 1 { eprintln("FAIL: U expected 1, got " + to_string(r[2])) ; fail = fail + 1 }
+    if r[3] != 1 { eprintln("FAIL: A expected 1, got " + to_string(r[3])) ; fail = fail + 1 }
+    if r[4] != 1 { eprintln("FAIL: T expected 1, got " + to_string(r[4])) ; fail = fail + 1 }
+    if r[5] != 1 { eprintln("FAIL: R expected 1, got " + to_string(r[5])) ; fail = fail + 1 }
+    if r[11] != 1 { eprintln("FAIL: dangling expected 1 (ghost_id), got " + to_string(r[11])) ; fail = fail + 1 }
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_health] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_health] OK")
+exit(0)

@@ -1,0 +1,104 @@
+// ══════════════════════════════════════════════════════════════
+// tape_grep.hexa — typed filter over .tape entries
+//
+// @module(slug="tape_grep", desc="Filter tape entries by type / domain / grade. Returns matched header lines (+ their continuation blocks if --with-edges). Replaces ad-hoc `grep '^@T '` invocations with a typed, type-alphabet-aware reader.")
+// @usage(hexa algorithms/tape_grep.hexa --selftest)
+// @usage(hexa algorithms/tape_grep.hexa <path> [--type=T] [--domain=tool] [--grade=denied] [--with-edges])
+// @exit_codes(0=match, 1=selftest-fail-or-no-match, 2=io-error, 3=bad-args)
+// ══════════════════════════════════════════════════════════════
+
+fn _header_type(line: string) -> string {
+    if line.len() < 2 { return "" }
+    if line.substring(0, 1) != "@" { return "" }
+    return line.substring(1, 2)
+}
+
+fn _header_domain(line: string) -> string {
+    let parts = line.split(" :: ")
+    if parts.len() < 2 { return "" }
+    let rest = parts[1]
+    let dom_end = rest.split(" ")
+    if dom_end.len() < 1 { return "" }
+    return dom_end[0]
+}
+
+fn _header_grade_payload(line: string) -> string {
+    let mut lb: i64 = -1
+    let mut rb: i64 = -1
+    let mut i: i64 = 0
+    while i < line.len() {
+        let c = line.substring(i, i + 1)
+        if c == "[" { lb = i }
+        if c == "]" { rb = i }
+        i = i + 1
+    }
+    if lb < 0 { return "" }
+    if rb < lb { return "" }
+    return line.substring(lb + 1, rb)
+}
+
+fn _grade_has_state(payload: string, state: string) -> bool {
+    let parts = payload.split(" ")
+    let mut i: i64 = 0
+    while i < parts.len() {
+        if parts[i].trim() == state { return true }
+        i = i + 1
+    }
+    return false
+}
+
+// Returns a list of matched-header-line indices (into `lines`).
+fn tape_grep_filter(lines: [string], want_type: string, want_domain: string, want_grade: string) -> [i64] {
+    let mut hits: [i64] = []
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if ln.len() > 0 {
+            if ln.substring(0, 1) == "@" {
+                let mut ok = true
+                if want_type.len() > 0 {
+                    if _header_type(ln) != want_type { ok = false }
+                }
+                if ok {
+                    if want_domain.len() > 0 {
+                        if _header_domain(ln) != want_domain { ok = false }
+                    }
+                }
+                if ok {
+                    if want_grade.len() > 0 {
+                        let g = _header_grade_payload(ln)
+                        if !_grade_has_state(g, want_grade) { ok = false }
+                    }
+                }
+                if ok { hits.push(i) }
+            }
+        }
+        i = i + 1
+    }
+    return hits
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+    let fixture = ""
+        + "@S start s001 :: session [T0 N0 ok]\n"
+        + "@U u001 = \"x\" :: harness [T1 N3 ok]\n"
+        + "@T t001 write :: tool [T2 N4 ok]\n"
+        + "@D d001 deny write :: governance [T2 N4 denied]\n"
+        + "@R r001 write err :: tool [T2 N5 err]\n"
+    let lines = fixture.split("\n")
+    let hits_t = tape_grep_filter(lines, "T", "", "")
+    if hits_t.len() != 1 { eprintln("FAIL: type=T expected 1, got " + to_string(hits_t.len())) ; fail = fail + 1 }
+    let hits_denied = tape_grep_filter(lines, "", "", "denied")
+    if hits_denied.len() != 1 { eprintln("FAIL: grade=denied expected 1, got " + to_string(hits_denied.len())) ; fail = fail + 1 }
+    let hits_tool = tape_grep_filter(lines, "", "tool", "")
+    if hits_tool.len() != 2 { eprintln("FAIL: domain=tool expected 2, got " + to_string(hits_tool.len())) ; fail = fail + 1 }
+    let hits_err = tape_grep_filter(lines, "R", "", "err")
+    if hits_err.len() != 1 { eprintln("FAIL: type=R grade=err expected 1, got " + to_string(hits_err.len())) ; fail = fail + 1 }
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_grep] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_grep] OK")
+exit(0)

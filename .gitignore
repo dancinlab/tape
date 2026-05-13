@@ -1,0 +1,30 @@
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.zed/
+.idea/
+*.log
+*.tmp
+
+# Build artifacts
+build/
+dist/
+target/
+
+# Node (shiki dev dep)
+node_modules/
+
+# Python bytecode
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local env
+.env
+.local/
+
+# hexa runtime hook markers (created by `hexa run` selftest)
+state/

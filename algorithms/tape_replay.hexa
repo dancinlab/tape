@@ -1,0 +1,150 @@
+// ══════════════════════════════════════════════════════════════
+// tape_replay.hexa — reconstruct [Message] from a .tape for resume
+//
+// @module(slug="tape_replay", desc="Read a tape, return an ordered list of (role, content) pairs for agent-loop resume. @U → role=user, @A → role=assistant, @T+@R → role=tool. Skips @S/@H/@D/@K/@P/@? (operational events, not history).")
+// @usage(hexa algorithms/tape_replay.hexa --selftest)
+// @usage(hexa algorithms/tape_replay.hexa <path>)
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args)
+//
+// Output format (stdout): "role\tcontent\n" — one Message per line
+// ══════════════════════════════════════════════════════════════
+
+// ───── inline content extraction ─────
+
+// Pull a quoted prose payload from "  => \"foo\"" or "@U u001 = \"foo\" :: ..."
+fn _extract_quoted(line: string) -> string {
+    let mut i: i64 = 0
+    let mut q1: i64 = -1
+    let mut q2: i64 = -1
+    while i < line.len() {
+        if line.substring(i, i + 1) == "\"" {
+            if q1 < 0 { q1 = i }
+            else { if q2 < 0 { q2 = i } }
+        }
+        i = i + 1
+    }
+    if q1 < 0 { return "" }
+    if q2 < 0 { return "" }
+    return line.substring(q1 + 1, q2)
+}
+
+// ───── per-event extraction ─────
+
+// A Message-shaped pair returned as ["role", "content"].
+fn _block_to_message(block: [string]) -> [string] {
+    if block.len() < 1 { return ["", ""] }
+    let header = block[0]
+    if header.len() < 2 { return ["", ""] }
+    let t = header.substring(1, 2)
+    let mut role = ""
+    if t == "U" { role = "user" }
+    if t == "A" { role = "assistant" }
+    if t == "R" { role = "tool" }
+    if role.len() < 1 { return ["", ""] }
+    // content: prefer header inline quote, else first => prose, else first " " prose
+    let mut content = _extract_quoted(header)
+    if content.len() < 1 {
+        let mut i: i64 = 1
+        while i < block.len() {
+            let cl = block[i]
+            if cl.len() > 5 {
+                let s = cl.substring(2, 4)
+                if s == "=>" {
+                    let q = _extract_quoted(cl)
+                    if q.len() > 0 { content = q ; i = block.len() }
+                }
+            }
+            i = i + 1
+        }
+    }
+    if content.len() < 1 {
+        // try unprefixed quoted prose line: "  \"...\""
+        let mut i: i64 = 1
+        while i < block.len() {
+            let cl = block[i]
+            if cl.len() > 3 {
+                if cl.substring(0, 3) == "  \"" {
+                    let q = _extract_quoted(cl)
+                    if q.len() > 0 { content = q ; i = block.len() }
+                }
+            }
+            i = i + 1
+        }
+    }
+    return [role, content]
+}
+
+// ───── replay ─────
+
+// Parse `body` into [Message]-equivalent rows (role, content).
+// Each row is a 2-elt list of strings; output is a list of those.
+fn tape_replay_parse(body: string) -> [[string]] {
+    let lines = body.split("\n")
+    let mut out: [[string]] = []
+    let mut cur: [string] = []
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if ln.len() < 1 || ln.substring(0, 1) == "#" {
+            if cur.len() > 0 {
+                let m = _block_to_message(cur)
+                if m[0].len() > 0 { out.push(m) }
+                cur = []
+            }
+        } else {
+            if ln.substring(0, 1) == "@" {
+                if cur.len() > 0 {
+                    let m = _block_to_message(cur)
+                    if m[0].len() > 0 { out.push(m) }
+                    cur = []
+                }
+                cur.push(ln)
+            } else {
+                if cur.len() > 0 { cur.push(ln) }
+            }
+        }
+        i = i + 1
+    }
+    if cur.len() > 0 {
+        let m = _block_to_message(cur)
+        if m[0].len() > 0 { out.push(m) }
+    }
+    return out
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+    let fixture = "#!/usr/bin/env tape\n"
+        + "@S start s001 :: session [T0 N0 ok]\n"
+        + "@U u001 = \"hello\" :: harness [T1 N3 ok]\n"
+        + "@A a001 :: harness [T1 N4 ok]\n"
+        + "  <- u001\n"
+        + "  => \"hi there\"\n"
+        + "@T t001 read path=README.md :: tool [T2 N5 ok]\n"
+        + "@R r001 read ok :: tool [T2 N6 ok]\n"
+        + "  => \"5249 bytes returned\"\n"
+        + "@S end :: session [T2 N8 ok]\n"
+        + "  ~> s001\n"
+    let msgs = tape_replay_parse(fixture)
+    if msgs.len() != 3 {
+        eprintln("FAIL: expected 3 messages (U, A, R), got " + to_string(msgs.len()))
+        fail = fail + 1
+    }
+    if msgs.len() > 0 {
+        if msgs[0][0] != "user" { eprintln("FAIL: first msg role != user") ; fail = fail + 1 }
+        if msgs[0][1] != "hello" { eprintln("FAIL: first msg content != hello: " + msgs[0][1]) ; fail = fail + 1 }
+    }
+    if msgs.len() > 1 {
+        if msgs[1][0] != "assistant" { eprintln("FAIL: msg[1] role != assistant") ; fail = fail + 1 }
+        if msgs[1][1] != "hi there" { eprintln("FAIL: msg[1] content != hi there: " + msgs[1][1]) ; fail = fail + 1 }
+    }
+    if msgs.len() > 2 {
+        if msgs[2][0] != "tool" { eprintln("FAIL: msg[2] role != tool") ; fail = fail + 1 }
+    }
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_replay] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_replay] OK")
+exit(0)

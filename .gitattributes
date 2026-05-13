@@ -1,0 +1,10 @@
+# Linguist: .tape is not yet a registered language on github/linguist.
+# Classify as YAML for the language pie chart color (YAML's `#` comments
+# + `:` / `@` tags give the closest visual approximation).
+# Code-fence highlighting still requires the custom grammar in
+# syntaxes/tape.tmLanguage.json.
+*.tape linguist-language=YAML
+*.tape linguist-detectable=true
+
+# Vendored grammar — no language stats contribution
+syntaxes/tape.tmLanguage.json linguist-vendored=true

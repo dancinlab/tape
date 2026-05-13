@@ -1,0 +1,59 @@
+// ══════════════════════════════════════════════════════════════
+// tape_bootstrap.hexa — initialise a new .tape file
+//
+// @module(slug="tape_bootstrap", desc="Create a fresh tape with a `# header` comment block and the first `@S start <session_id>` line. Idempotent on existing files (refuses to overwrite).")
+// @usage(hexa algorithms/tape_bootstrap.hexa --selftest)
+// @usage(hexa algorithms/tape_bootstrap.hexa <path> <session_id> [--note "<text>"])
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args, 4=already-exists)
+// ══════════════════════════════════════════════════════════════
+
+fn tape_bootstrap_render(session_id: string, note: string) -> string {
+    let mut buf = ""
+    buf = buf + "#!/usr/bin/env tape\n"
+    buf = buf + "# ══════════════════════════════════════════════════════════════\n"
+    buf = buf + "# tape — agent-execution trace · session=" + session_id + "\n"
+    buf = buf + "# ══════════════════════════════════════════════════════════════\n"
+    buf = buf + "\n"
+    buf = buf + "@S start " + session_id + " :: session [T0 N0 ok]\n"
+    if note.len() > 0 {
+        buf = buf + "  => \"" + note + "\"\n"
+    }
+    return buf
+}
+
+fn tape_bootstrap_write(path: string, session_id: string, note: string) -> i64 {
+    if file_exists(path) { return 4 }
+    let payload = tape_bootstrap_render(session_id, note)
+    write_file(path, payload)
+    if !file_exists(path) { return 2 }
+    return 0
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+    let body = tape_bootstrap_render("s001", "wilson — opus-4-7")
+    if !body.contains("@S start s001 :: session [T0 N0 ok]") {
+        eprintln("FAIL: rendered body missing session start")
+        fail = fail + 1
+    }
+    if !body.contains("=> \"wilson — opus-4-7\"") {
+        eprintln("FAIL: rendered body missing note")
+        fail = fail + 1
+    }
+    if !body.contains("#!/usr/bin/env tape") {
+        eprintln("FAIL: rendered body missing shebang")
+        fail = fail + 1
+    }
+    // no-note variant
+    let body2 = tape_bootstrap_render("s002", "")
+    if body2.contains("  => \"") {
+        eprintln("FAIL: empty note still rendered prose")
+        fail = fail + 1
+    }
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_bootstrap] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_bootstrap] OK")
+exit(0)
