@@ -28,33 +28,50 @@
 ## At a glance
 
 ```ruby
-@S start s001 :: session [T0 N0 ok]
-  => "wilson session — provider=claude-cli model=opus-4-7"
+@S start s042 :: session [T0 N0 ok]
+  => "agent session — provider=anthropic model=opus-4-7"
 
-@U u001 = "audit이 뭐야?" :: harness [T1 N3 ok]
+@U u001 = "investigate flaky test_concurrent_writes — fails 1/20 runs" :: harness [T1 N3 ok]
 
 @A a001 :: harness [T1 N4 ok]
   <- u001
-  => "stream-delta 18 tokens"
+  => "stream-delta 31 tokens — plans grep + read + edit"
 
-@T t001 write path=HCX.md :: tool [T2 N49 ok]
+@T t001 grep "test_concurrent_writes" path=tests :: tool [T1 N6 ok]
   <- a001
 
-@D d001 allow write/HCX.md :: governance [T2 N49 ok]
+@R r001 grep "tests/test_io.rs:412" :: tool [T1 N7 ok]
   <- t001
-  |> tool-write/HCX.md
+  => "1 hit"
 
-@R r001 write ok :: tool [T2 N50 ok]
-  <- t001
+@T t002 read path=tests/test_io.rs offset=400 limit=40 :: tool [T1 N8 ok]
+  <- r001
+
+@R r002 read 40 lines :: tool [T1 N9 ok]
+  <- t002
+  => "race: shared mutex dropped before second writer joins"
+
+@T t003 edit path=tests/test_io.rs :: tool [T2 N14 ok]
+  <- r002
+
+@D d001 allow edit/tests/test_io.rs :: governance [T2 N14 ok]
+  <- t003
+  |> path within project root
+
+@R r003 edit ok :: tool [T2 N15 ok]
+  <- t003
   <- d001
-  => "1023 bytes written"
+  => "2 lines: barrier.wait() inserted at line 421"
 
-@K k001 = 5+31+21852 = 46104 ucents :: cost [T2 N52 ok]
-  <- a001
-  => "in=5 out=31 cache=21852"
+@A a002 :: harness [T2 N16 ok]
+  <- r003
+  => "fixed race in test_concurrent_writes:421 — added barrier sync"
 
-@S end :: session [T2 N53 ok]
-  ~> s001
+@K k001 = 22+58+9417 = 24302 ucents :: cost [T2 N18 ok]
+  <- a002
+
+@S end :: session [T2 N20 ok]
+  ~> s042
 ```
 
 - `@<type> <id> [= <expr>] :: <domain> [<grade>]` — entry header
