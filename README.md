@@ -114,7 +114,25 @@ All five share the same grammar, validator (`tape_absorb`), and algorithm catalo
 
 ## Editor support
 
-`.tape` is not yet a registered language on [github/linguist](https://github.com/github-linguist/linguist). The repo ships a TextMate grammar — see [`syntaxes/README.md`](syntaxes/README.md) for VS Code / Sublime / TextMate install steps.
+`.tape` is not yet a registered language on [github/linguist](https://github.com/github-linguist/linguist), so GitHub does not natively highlight `.tape` fences. The repo ships a TextMate grammar that any modern editor can load — see [`syntaxes/README.md`](syntaxes/README.md) for VS Code / Sublime / TextMate install steps.
+
+### Live preview
+
+Both themes rendered with [shiki](https://shiki.style/) from the shipped grammar — same content, different theme.
+
+**github-dark**
+
+<p align="center">
+  <img src="docs/preview-dark.svg" alt="github-dark theme">
+</p>
+
+**github-light**
+
+<p align="center">
+  <img src="docs/preview-light.svg" alt="github-light theme">
+</p>
+
+Browser-only view (combined): [`docs/preview.html`](docs/preview.html). Regenerate via `node scripts/render_svg.mjs` after grammar / example changes — see [`scripts/README.md`](scripts/README.md).
 
 ## Repo layout
 
@@ -132,7 +150,10 @@ tape/
 ├── docs/
 │   ├── INDEX.md                  doc index
 │   ├── DESIGN.md                 why a 4th sibling · why typed events
-│   └── logo.svg                  hexagon + tape glyph
+│   ├── logo.svg                  hexagon + tape glyph
+│   ├── preview-{dark,light}.svg  README-embedded theme renderings
+│   └── preview.html              browser-only side-by-side view
+├── scripts/                      preview generators (shiki-based)
 └── .github/workflows/
     └── lint.yml                  byte-canonical + entry-header invariant CI
 ```

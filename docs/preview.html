@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>⊳ tape — syntax highlighting preview</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; background: #fafafa; color: #111; }
+  @media (prefers-color-scheme: dark) { body { background: #0d1117; color: #e6edf3; } a { color: #58a6ff; } }
+  h1 { font-family: ui-monospace, monospace; }
+  h2 { font-family: ui-monospace, monospace; font-size: 1rem; color: #6e7681; margin-top: 2.5rem; border-bottom: 1px solid #30363d33; padding-bottom: 0.3rem; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 720px) { .row { grid-template-columns: 1fr; } }
+  pre { margin: 0; padding: 0.85rem 1rem; border-radius: 6px; font-size: 13px; line-height: 1.55; overflow-x: auto; border: 1px solid #30363d33; }
+  .label { font-size: 11px; font-family: ui-monospace, monospace; color: #6e7681; margin-bottom: 0.3rem; letter-spacing: 0.05em; }
+  .meta { color: #6e7681; font-size: 0.9em; }
+  code { font-family: ui-monospace, monospace; }
+</style>
+</head><body>
+<h1>⊳ tape — syntax preview</h1>
+<p class="meta">Rendered with <a href="https://shiki.style/">shiki</a> using the grammar at <code>syntaxes/tape.tmLanguage.json</code>. Left = <code>github-dark</code>, right = <code>github-light</code>.</p>
+
+<h2>examples/01_basic_session.tape</h2>
+<div class="row">
+  <div><div class="label">github-dark</div><pre class="shiki github-dark" style="background-color:#24292e;color:#e1e4e8" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: minimal session — start, two turns, one tool, end</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 시작 (Session start) ─────────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@S</span><span style="color:#B392F0"> start</span><span style="color:#E1E4E8"> s001 </span><span style="color:#F97583">::</span><span style="color:#B392F0"> session</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T0</span><span style="color:#79B8FF"> N0</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "wilson — provider=claude-cli model=opus-4-7"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 첫 턴 (Turn 1: greeting) ─────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@U</span><span style="color:#B392F0"> u001</span><span style="color:#F97583"> =</span><span style="color:#9ECBFF"> "안녕"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N3</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@A</span><span style="color:#B392F0"> a001</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N4</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> u001</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "반가워요. 어떻게 도와드릴까요?"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@K</span><span style="color:#B392F0"> k001</span><span style="color:#F97583"> =</span><span style="color:#79B8FF"> 4</span><span style="color:#F97583">+</span><span style="color:#79B8FF">12</span><span style="color:#F97583">+</span><span style="color:#79B8FF">0</span><span style="color:#F97583"> =</span><span style="color:#79B8FF"> 16</span><span style="color:#E1E4E8"> ucents </span><span style="color:#F97583">::</span><span style="color:#B392F0"> cost</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N5</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a001</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 두번째 턴 (Turn 2: tool call) ────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@U</span><span style="color:#B392F0"> u002</span><span style="color:#F97583"> =</span><span style="color:#9ECBFF"> "프로젝트 README 한줄 요약해"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T2</span><span style="color:#79B8FF"> N28</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@A</span><span style="color:#B392F0"> a002</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T2</span><span style="color:#79B8FF"> N29</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> u002</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "Let me read the README"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@T</span><span style="color:#B392F0"> t001</span><span style="color:#E1E4E8"> read </span><span style="color:#FFAB70">path</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">README.md</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> tool</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T2</span><span style="color:#79B8FF"> N29</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a002</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> d001</span><span style="color:#E1E4E8"> allow read</span><span style="color:#F97583">/</span><span style="color:#E1E4E8">README.md </span><span style="color:#F97583">::</span><span style="color:#B392F0"> governance</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T2</span><span style="color:#79B8FF"> N29</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> t001</span></span>
+<span class="line"><span style="color:#F97583">  |></span><span style="color:#E1E4E8"> read</span><span style="color:#F97583">-</span><span style="color:#E1E4E8">allowlist</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@R</span><span style="color:#B392F0"> r001</span><span style="color:#E1E4E8"> read ok </span><span style="color:#F97583">::</span><span style="color:#B392F0"> tool</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T2</span><span style="color:#79B8FF"> N30</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> t001</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> d001</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "5249 bytes returned"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@A</span><span style="color:#B392F0"> a003</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T2</span><span style="color:#79B8FF"> N31</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a002</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> r001</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "wilson 은 hexa-native AI coding agent — minimal core + plugin-first."</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@K</span><span style="color:#B392F0"> k002</span><span style="color:#F97583"> =</span><span style="color:#79B8FF"> 11</span><span style="color:#F97583">+</span><span style="color:#79B8FF">24</span><span style="color:#F97583">+</span><span style="color:#79B8FF">428</span><span style="color:#F97583"> =</span><span style="color:#79B8FF"> 932</span><span style="color:#E1E4E8"> ucents </span><span style="color:#F97583">::</span><span style="color:#B392F0"> cost</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T2</span><span style="color:#79B8FF"> N32</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a003</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 종료 (Session end) ────────────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@S</span><span style="color:#B392F0"> end</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> session</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T2</span><span style="color:#79B8FF"> N40</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  ~></span><span style="color:#E1E4E8"> s001</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "clean exit — /exit"</span></span>
+<span class="line"></span></code></pre></div>
+  <div><div class="label">github-light</div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: minimal session — start, two turns, one tool, end</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 시작 (Session start) ─────────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@S</span><span style="color:#6F42C1"> start</span><span style="color:#24292E"> s001 </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> session</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T0</span><span style="color:#005CC5"> N0</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "wilson — provider=claude-cli model=opus-4-7"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 첫 턴 (Turn 1: greeting) ─────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@U</span><span style="color:#6F42C1"> u001</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "안녕"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N3</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@A</span><span style="color:#6F42C1"> a001</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N4</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> u001</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "반가워요. 어떻게 도와드릴까요?"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@K</span><span style="color:#6F42C1"> k001</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> 4</span><span style="color:#D73A49">+</span><span style="color:#005CC5">12</span><span style="color:#D73A49">+</span><span style="color:#005CC5">0</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> 16</span><span style="color:#24292E"> ucents </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> cost</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N5</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a001</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 두번째 턴 (Turn 2: tool call) ────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@U</span><span style="color:#6F42C1"> u002</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "프로젝트 README 한줄 요약해"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T2</span><span style="color:#005CC5"> N28</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@A</span><span style="color:#6F42C1"> a002</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T2</span><span style="color:#005CC5"> N29</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> u002</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "Let me read the README"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@T</span><span style="color:#6F42C1"> t001</span><span style="color:#24292E"> read </span><span style="color:#E36209">path</span><span style="color:#D73A49">=</span><span style="color:#032F62">README.md</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> tool</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T2</span><span style="color:#005CC5"> N29</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a002</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> d001</span><span style="color:#24292E"> allow read</span><span style="color:#D73A49">/</span><span style="color:#24292E">README.md </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> governance</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T2</span><span style="color:#005CC5"> N29</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> t001</span></span>
+<span class="line"><span style="color:#D73A49">  |></span><span style="color:#24292E"> read</span><span style="color:#D73A49">-</span><span style="color:#24292E">allowlist</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@R</span><span style="color:#6F42C1"> r001</span><span style="color:#24292E"> read ok </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> tool</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T2</span><span style="color:#005CC5"> N30</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> t001</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> d001</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "5249 bytes returned"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@A</span><span style="color:#6F42C1"> a003</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T2</span><span style="color:#005CC5"> N31</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a002</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> r001</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "wilson 은 hexa-native AI coding agent — minimal core + plugin-first."</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@K</span><span style="color:#6F42C1"> k002</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> 11</span><span style="color:#D73A49">+</span><span style="color:#005CC5">24</span><span style="color:#D73A49">+</span><span style="color:#005CC5">428</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> 932</span><span style="color:#24292E"> ucents </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> cost</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T2</span><span style="color:#005CC5"> N32</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a003</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 종료 (Session end) ────────────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@S</span><span style="color:#6F42C1"> end</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> session</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T2</span><span style="color:#005CC5"> N40</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  ~></span><span style="color:#24292E"> s001</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "clean exit — /exit"</span></span>
+<span class="line"></span></code></pre></div>
+</div>
+
+<h2>examples/02_tool_chain.tape</h2>
+<div class="row">
+  <div><div class="label">github-dark</div><pre class="shiki github-dark" style="background-color:#24292e;color:#e1e4e8" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: multi-tool causal chain — assistant fans out 3 tools,</span></span>
+<span class="line"><span style="color:#6A737D">#          aggregates results, replies.  Shows multi-id `&#x3C;- t001, t002, t003`</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@S</span><span style="color:#B392F0"> start</span><span style="color:#E1E4E8"> s002 </span><span style="color:#F97583">::</span><span style="color:#B392F0"> session</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T0</span><span style="color:#79B8FF"> N0</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "wilson — investigating a codebase"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@U</span><span style="color:#B392F0"> u001</span><span style="color:#F97583"> =</span><span style="color:#9ECBFF"> "list the hexa files under core/ and count them"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N2</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@A</span><span style="color:#B392F0"> a001</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N3</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> u001</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "I'll glob for core/*.hexa, count lines in each"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 세 도구 병렬 호출 (3 tool fan-out) ───────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@T</span><span style="color:#B392F0"> t001</span><span style="color:#E1E4E8"> glob </span><span style="color:#FFAB70">pattern</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">core/*.hexa</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> tool</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N3</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a001</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> d001</span><span style="color:#E1E4E8"> allow glob </span><span style="color:#F97583">::</span><span style="color:#B392F0"> governance</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N3</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> t001</span></span>
+<span class="line"><span style="color:#F97583">  |></span><span style="color:#E1E4E8"> deterministic</span><span style="color:#F97583">-</span><span style="color:#E1E4E8">tool</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@R</span><span style="color:#B392F0"> r001</span><span style="color:#E1E4E8"> glob ok </span><span style="color:#F97583">::</span><span style="color:#B392F0"> tool</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N4</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> t001</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> d001</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "7 paths matched"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@T</span><span style="color:#B392F0"> t002</span><span style="color:#E1E4E8"> bash </span><span style="color:#FFAB70">cmd</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">"wc</span><span style="color:#F97583"> -</span><span style="color:#E1E4E8">l core</span><span style="color:#F97583">/*</span><span style="color:#E1E4E8">.hexa</span><span style="color:#9ECBFF">"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> tool</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N4</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a001</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> d002</span><span style="color:#E1E4E8"> allow bash </span><span style="color:#F97583">::</span><span style="color:#B392F0"> governance</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N4</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> t002</span></span>
+<span class="line"><span style="color:#F97583">  |></span><span style="color:#E1E4E8"> bash</span><span style="color:#F97583">-</span><span style="color:#E1E4E8">allowlist:wc</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@R</span><span style="color:#B392F0"> r002</span><span style="color:#E1E4E8"> bash ok </span><span style="color:#F97583">::</span><span style="color:#B392F0"> tool</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N5</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> t002</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> d002</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "8420 total"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@T</span><span style="color:#B392F0"> t003</span><span style="color:#E1E4E8"> read </span><span style="color:#FFAB70">path</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">core/main.hexa</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> tool</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N5</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a001</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> d003</span><span style="color:#E1E4E8"> allow read</span><span style="color:#F97583">/</span><span style="color:#E1E4E8">core</span><span style="color:#F97583">/</span><span style="color:#E1E4E8">main.hexa </span><span style="color:#F97583">::</span><span style="color:#B392F0"> governance</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N5</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> t003</span></span>
+<span class="line"><span style="color:#F97583">  |></span><span style="color:#E1E4E8"> read</span><span style="color:#F97583">-</span><span style="color:#E1E4E8">allowlist</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@R</span><span style="color:#B392F0"> r003</span><span style="color:#E1E4E8"> read ok </span><span style="color:#F97583">::</span><span style="color:#B392F0"> tool</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N6</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> t003</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> d003</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "3122 bytes returned"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 결과 집약 + 응답 (aggregate + reply) ─────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@A</span><span style="color:#B392F0"> a002</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N7</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a001</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> r001, r002, r003</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "7 .hexa files under core/, 8420 lines total; entry = core/main.hexa"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@K</span><span style="color:#B392F0"> k001</span><span style="color:#F97583"> =</span><span style="color:#79B8FF"> 24</span><span style="color:#F97583">+</span><span style="color:#79B8FF">62</span><span style="color:#F97583">+</span><span style="color:#79B8FF">1820</span><span style="color:#F97583"> =</span><span style="color:#79B8FF"> 5896</span><span style="color:#E1E4E8"> ucents </span><span style="color:#F97583">::</span><span style="color:#B392F0"> cost</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N8</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a002</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@S</span><span style="color:#B392F0"> end</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> session</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N12</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  ~></span><span style="color:#E1E4E8"> s002</span></span>
+<span class="line"></span></code></pre></div>
+  <div><div class="label">github-light</div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: multi-tool causal chain — assistant fans out 3 tools,</span></span>
+<span class="line"><span style="color:#6A737D">#          aggregates results, replies.  Shows multi-id `&#x3C;- t001, t002, t003`</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@S</span><span style="color:#6F42C1"> start</span><span style="color:#24292E"> s002 </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> session</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T0</span><span style="color:#005CC5"> N0</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "wilson — investigating a codebase"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@U</span><span style="color:#6F42C1"> u001</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "list the hexa files under core/ and count them"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N2</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@A</span><span style="color:#6F42C1"> a001</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N3</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> u001</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "I'll glob for core/*.hexa, count lines in each"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 세 도구 병렬 호출 (3 tool fan-out) ───────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@T</span><span style="color:#6F42C1"> t001</span><span style="color:#24292E"> glob </span><span style="color:#E36209">pattern</span><span style="color:#D73A49">=</span><span style="color:#032F62">core/*.hexa</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> tool</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N3</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a001</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> d001</span><span style="color:#24292E"> allow glob </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> governance</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N3</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> t001</span></span>
+<span class="line"><span style="color:#D73A49">  |></span><span style="color:#24292E"> deterministic</span><span style="color:#D73A49">-</span><span style="color:#24292E">tool</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@R</span><span style="color:#6F42C1"> r001</span><span style="color:#24292E"> glob ok </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> tool</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N4</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> t001</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> d001</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "7 paths matched"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@T</span><span style="color:#6F42C1"> t002</span><span style="color:#24292E"> bash </span><span style="color:#E36209">cmd</span><span style="color:#D73A49">=</span><span style="color:#032F62">"wc</span><span style="color:#D73A49"> -</span><span style="color:#24292E">l core</span><span style="color:#D73A49">/*</span><span style="color:#24292E">.hexa</span><span style="color:#032F62">"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> tool</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N4</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a001</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> d002</span><span style="color:#24292E"> allow bash </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> governance</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N4</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> t002</span></span>
+<span class="line"><span style="color:#D73A49">  |></span><span style="color:#24292E"> bash</span><span style="color:#D73A49">-</span><span style="color:#24292E">allowlist:wc</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@R</span><span style="color:#6F42C1"> r002</span><span style="color:#24292E"> bash ok </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> tool</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N5</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> t002</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> d002</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "8420 total"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@T</span><span style="color:#6F42C1"> t003</span><span style="color:#24292E"> read </span><span style="color:#E36209">path</span><span style="color:#D73A49">=</span><span style="color:#032F62">core/main.hexa</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> tool</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N5</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a001</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> d003</span><span style="color:#24292E"> allow read</span><span style="color:#D73A49">/</span><span style="color:#24292E">core</span><span style="color:#D73A49">/</span><span style="color:#24292E">main.hexa </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> governance</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N5</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> t003</span></span>
+<span class="line"><span style="color:#D73A49">  |></span><span style="color:#24292E"> read</span><span style="color:#D73A49">-</span><span style="color:#24292E">allowlist</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@R</span><span style="color:#6F42C1"> r003</span><span style="color:#24292E"> read ok </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> tool</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N6</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> t003</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> d003</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "3122 bytes returned"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 결과 집약 + 응답 (aggregate + reply) ─────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@A</span><span style="color:#6F42C1"> a002</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N7</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a001</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> r001, r002, r003</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "7 .hexa files under core/, 8420 lines total; entry = core/main.hexa"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@K</span><span style="color:#6F42C1"> k001</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> 24</span><span style="color:#D73A49">+</span><span style="color:#005CC5">62</span><span style="color:#D73A49">+</span><span style="color:#005CC5">1820</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> 5896</span><span style="color:#24292E"> ucents </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> cost</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N8</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a002</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@S</span><span style="color:#6F42C1"> end</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> session</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N12</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  ~></span><span style="color:#24292E"> s002</span></span>
+<span class="line"></span></code></pre></div>
+</div>
+
+<h2>examples/03_governance_deny.tape</h2>
+<div class="row">
+  <div><div class="label">github-dark</div><pre class="shiki github-dark" style="background-color:#24292e;color:#e1e4e8" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: governance deny — assistant proposes a dangerous write,</span></span>
+<span class="line"><span style="color:#6A737D">#          governance blocks before exec.  Shows `!!` abort edge +</span></span>
+<span class="line"><span style="color:#6A737D">#          `[denied]` grade.</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@S</span><span style="color:#B392F0"> start</span><span style="color:#E1E4E8"> s003 </span><span style="color:#F97583">::</span><span style="color:#B392F0"> session</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T0</span><span style="color:#79B8FF"> N0</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "wilson — sandboxed run"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@U</span><span style="color:#B392F0"> u001</span><span style="color:#F97583"> =</span><span style="color:#9ECBFF"> "update /etc/passwd to add a user"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N4</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@A</span><span style="color:#B392F0"> a001</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N5</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> u001</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "I'll write to /etc/passwd"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 도구 호출 → 거버넌스 거부 (governance deny) ──────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@T</span><span style="color:#B392F0"> t001</span><span style="color:#E1E4E8"> write </span><span style="color:#FFAB70">path</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">/etc/passwd</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> tool</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N5</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a001</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> d001</span><span style="color:#E1E4E8"> deny write</span><span style="color:#F97583">//</span><span style="color:#E1E4E8">etc</span><span style="color:#F97583">/</span><span style="color:#E1E4E8">passwd </span><span style="color:#F97583">::</span><span style="color:#B392F0"> governance</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N5</span><span style="color:#F97583"> denied</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> t001</span></span>
+<span class="line"><span style="color:#F97583">  !!</span><span style="color:#E1E4E8"> t001</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "dangerous_path: /etc/ writes denied by default profile"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@?</span><span style="color:#B392F0"> abort001</span><span style="color:#F97583"> =</span><span style="color:#E1E4E8"> governance_block </span><span style="color:#F97583">::</span><span style="color:#B392F0"> governance</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N5</span><span style="color:#F97583"> denied</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  !!</span><span style="color:#E1E4E8"> t001</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> d001</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 어시스턴트 사과 + 재시도 (apology + retry) ───────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@A</span><span style="color:#B392F0"> a002</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N6</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a001</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> abort001</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "Blocked — /etc/passwd writes are not allowed under the default governance profile. Want me to draft the change as a patch instead?"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@K</span><span style="color:#B392F0"> k001</span><span style="color:#F97583"> =</span><span style="color:#79B8FF"> 12</span><span style="color:#F97583">+</span><span style="color:#79B8FF">34</span><span style="color:#F97583">+</span><span style="color:#79B8FF">220</span><span style="color:#F97583"> =</span><span style="color:#79B8FF"> 700</span><span style="color:#E1E4E8"> ucents </span><span style="color:#F97583">::</span><span style="color:#B392F0"> cost</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N7</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a002</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@S</span><span style="color:#B392F0"> end</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> session</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T1</span><span style="color:#79B8FF"> N12</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  ~></span><span style="color:#E1E4E8"> s003</span></span>
+<span class="line"></span></code></pre></div>
+  <div><div class="label">github-light</div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: governance deny — assistant proposes a dangerous write,</span></span>
+<span class="line"><span style="color:#6A737D">#          governance blocks before exec.  Shows `!!` abort edge +</span></span>
+<span class="line"><span style="color:#6A737D">#          `[denied]` grade.</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@S</span><span style="color:#6F42C1"> start</span><span style="color:#24292E"> s003 </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> session</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T0</span><span style="color:#005CC5"> N0</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "wilson — sandboxed run"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@U</span><span style="color:#6F42C1"> u001</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "update /etc/passwd to add a user"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N4</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@A</span><span style="color:#6F42C1"> a001</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N5</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> u001</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "I'll write to /etc/passwd"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 도구 호출 → 거버넌스 거부 (governance deny) ──────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@T</span><span style="color:#6F42C1"> t001</span><span style="color:#24292E"> write </span><span style="color:#E36209">path</span><span style="color:#D73A49">=</span><span style="color:#032F62">/etc/passwd</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> tool</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N5</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a001</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> d001</span><span style="color:#24292E"> deny write</span><span style="color:#D73A49">//</span><span style="color:#24292E">etc</span><span style="color:#D73A49">/</span><span style="color:#24292E">passwd </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> governance</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N5</span><span style="color:#D73A49"> denied</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> t001</span></span>
+<span class="line"><span style="color:#D73A49">  !!</span><span style="color:#24292E"> t001</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "dangerous_path: /etc/ writes denied by default profile"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@?</span><span style="color:#6F42C1"> abort001</span><span style="color:#D73A49"> =</span><span style="color:#24292E"> governance_block </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> governance</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N5</span><span style="color:#D73A49"> denied</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  !!</span><span style="color:#24292E"> t001</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> d001</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 어시스턴트 사과 + 재시도 (apology + retry) ───────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@A</span><span style="color:#6F42C1"> a002</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N6</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a001</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> abort001</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "Blocked — /etc/passwd writes are not allowed under the default governance profile. Want me to draft the change as a patch instead?"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@K</span><span style="color:#6F42C1"> k001</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> 12</span><span style="color:#D73A49">+</span><span style="color:#005CC5">34</span><span style="color:#D73A49">+</span><span style="color:#005CC5">220</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> 700</span><span style="color:#24292E"> ucents </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> cost</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N7</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a002</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@S</span><span style="color:#6F42C1"> end</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> session</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T1</span><span style="color:#005CC5"> N12</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  ~></span><span style="color:#24292E"> s003</span></span>
+<span class="line"></span></code></pre></div>
+</div>
+
+<h2>examples/04_resume_replay.tape</h2>
+<div class="row">
+  <div><div class="label">github-dark</div><pre class="shiki github-dark" style="background-color:#24292e;color:#e1e4e8" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: resume + replay — `@S resume == s001` continuation edge.</span></span>
+<span class="line"><span style="color:#6A737D">#   `tape_replay` rebuilds [Message] from the resumed tape:</span></span>
+<span class="line"><span style="color:#6A737D">#     prior @U/@A pairs → Message{role=user|assistant}</span></span>
+<span class="line"><span style="color:#6A737D">#     prior @T/@R pairs → tool-role Messages</span></span>
+<span class="line"><span style="color:#6A737D">#   Continuation is byte-canonical: the resumed tape is a strict</span></span>
+<span class="line"><span style="color:#6A737D">#   suffix of the original file (same path, O_APPEND reopen).</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D"># Imagine s001 = `examples/01_basic_session.tape` (id reused for clarity).</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@S</span><span style="color:#B392F0"> resume</span><span style="color:#E1E4E8"> s001r1 </span><span style="color:#F97583">::</span><span style="color:#B392F0"> session</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T0</span><span style="color:#79B8FF"> N0</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  ==</span><span style="color:#E1E4E8"> s001</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "WILSON_SESSION=s001 → re-open ~/.wilson/harness-cli/sessions/s001.tape"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D"># tape_replay populates the agent loop's history from the prior tape:</span></span>
+<span class="line"><span style="color:#6A737D">#   [Message{user,"안녕"},</span></span>
+<span class="line"><span style="color:#6A737D">#    Message{assistant,"반가워요…"},</span></span>
+<span class="line"><span style="color:#6A737D">#    Message{user,"프로젝트 README 한줄 요약해"},</span></span>
+<span class="line"><span style="color:#6A737D">#    Message{assistant,"wilson 은 …"}]</span></span>
+<span class="line"><span style="color:#6A737D"># No new @U/@A entries are emitted at resume — they already exist.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@H</span><span style="color:#B392F0"> session_resume@transform</span><span style="color:#FFAB70"> priority</span><span style="color:#F97583">=</span><span style="color:#9ECBFF">28</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> hook</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T0</span><span style="color:#79B8FF"> N0</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> s001r1</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 새 턴 (new turn on top of resumed history) ──────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@U</span><span style="color:#B392F0"> u003</span><span style="color:#F97583"> =</span><span style="color:#9ECBFF"> "그 hexa 파일들 중 가장 큰 거?"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T3</span><span style="color:#79B8FF"> N5</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@A</span><span style="color:#B392F0"> a004</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T3</span><span style="color:#79B8FF"> N6</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> u003</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> s001r1</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "이전 컨텍스트 — 7개 core/*.hexa 파일을 봤었지. core/main.hexa 가 가장 큼 (3122 bytes)."</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@K</span><span style="color:#B392F0"> k003</span><span style="color:#F97583"> =</span><span style="color:#79B8FF"> 8</span><span style="color:#F97583">+</span><span style="color:#79B8FF">22</span><span style="color:#F97583">+</span><span style="color:#79B8FF">312</span><span style="color:#F97583"> =</span><span style="color:#79B8FF"> 824</span><span style="color:#E1E4E8"> ucents </span><span style="color:#F97583">::</span><span style="color:#B392F0"> cost</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T3</span><span style="color:#79B8FF"> N7</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> a004</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@S</span><span style="color:#B392F0"> end</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> session</span><span style="color:#E1E4E8"> [</span><span style="color:#79B8FF">T3</span><span style="color:#79B8FF"> N15</span><span style="color:#F97583"> ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  ~></span><span style="color:#E1E4E8"> s001r1</span></span>
+<span class="line"></span></code></pre></div>
+  <div><div class="label">github-light</div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: resume + replay — `@S resume == s001` continuation edge.</span></span>
+<span class="line"><span style="color:#6A737D">#   `tape_replay` rebuilds [Message] from the resumed tape:</span></span>
+<span class="line"><span style="color:#6A737D">#     prior @U/@A pairs → Message{role=user|assistant}</span></span>
+<span class="line"><span style="color:#6A737D">#     prior @T/@R pairs → tool-role Messages</span></span>
+<span class="line"><span style="color:#6A737D">#   Continuation is byte-canonical: the resumed tape is a strict</span></span>
+<span class="line"><span style="color:#6A737D">#   suffix of the original file (same path, O_APPEND reopen).</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D"># Imagine s001 = `examples/01_basic_session.tape` (id reused for clarity).</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@S</span><span style="color:#6F42C1"> resume</span><span style="color:#24292E"> s001r1 </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> session</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T0</span><span style="color:#005CC5"> N0</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  ==</span><span style="color:#24292E"> s001</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "WILSON_SESSION=s001 → re-open ~/.wilson/harness-cli/sessions/s001.tape"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6A737D"># tape_replay populates the agent loop's history from the prior tape:</span></span>
+<span class="line"><span style="color:#6A737D">#   [Message{user,"안녕"},</span></span>
+<span class="line"><span style="color:#6A737D">#    Message{assistant,"반가워요…"},</span></span>
+<span class="line"><span style="color:#6A737D">#    Message{user,"프로젝트 README 한줄 요약해"},</span></span>
+<span class="line"><span style="color:#6A737D">#    Message{assistant,"wilson 은 …"}]</span></span>
+<span class="line"><span style="color:#6A737D"># No new @U/@A entries are emitted at resume — they already exist.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@H</span><span style="color:#6F42C1"> session_resume@transform</span><span style="color:#E36209"> priority</span><span style="color:#D73A49">=</span><span style="color:#032F62">28</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> hook</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T0</span><span style="color:#005CC5"> N0</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> s001r1</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 새 턴 (new turn on top of resumed history) ──────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@U</span><span style="color:#6F42C1"> u003</span><span style="color:#D73A49"> =</span><span style="color:#032F62"> "그 hexa 파일들 중 가장 큰 거?"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T3</span><span style="color:#005CC5"> N5</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@A</span><span style="color:#6F42C1"> a004</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T3</span><span style="color:#005CC5"> N6</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> u003</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> s001r1</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "이전 컨텍스트 — 7개 core/*.hexa 파일을 봤었지. core/main.hexa 가 가장 큼 (3122 bytes)."</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@K</span><span style="color:#6F42C1"> k003</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> 8</span><span style="color:#D73A49">+</span><span style="color:#005CC5">22</span><span style="color:#D73A49">+</span><span style="color:#005CC5">312</span><span style="color:#D73A49"> =</span><span style="color:#005CC5"> 824</span><span style="color:#24292E"> ucents </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> cost</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T3</span><span style="color:#005CC5"> N7</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> a004</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@S</span><span style="color:#6F42C1"> end</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> session</span><span style="color:#24292E"> [</span><span style="color:#005CC5">T3</span><span style="color:#005CC5"> N15</span><span style="color:#D73A49"> ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  ~></span><span style="color:#24292E"> s001r1</span></span>
+<span class="line"></span></code></pre></div>
+</div>
+
+<h2>examples/05_identity.tape</h2>
+<div class="row">
+  <div><div class="label">github-dark</div><pre class="shiki github-dark" style="background-color:#24292e;color:#e1e4e8" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: ~/.wilson/identity.tape — wilson identity SSOT (v1.1)</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 정체성 birth (foundational) ───────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@I</span><span style="color:#B392F0"> birth</span><span style="color:#E1E4E8"> wilson </span><span style="color:#F97583">::</span><span style="color:#B392F0"> identity</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#E1E4E8">  kind = "hexa-native AI coding agent"</span></span>
+<span class="line"><span style="color:#E1E4E8">  succession_of = hive</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "Minimal core + plugin-everything from day 1"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 능력 범위 ─────────────────────────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@I</span><span style="color:#B392F0"> scope</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> identity</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> wilson</span></span>
+<span class="line"><span style="color:#E1E4E8">  capabilities = ["read","write","edit","bash","glob","grep","git","gh","hexa","web_fetch","web_search","subagent"]</span></span>
+<span class="line"><span style="color:#E1E4E8">  refuses = ["mass_targeting","supply_chain_compromise","detection_evasion_for_malice"]</span></span>
+<span class="line"><span style="color:#E1E4E8">  authorizes = ["pentesting","ctf","security_research","defensive_use"]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 출처 / 계보 ───────────────────────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@I</span><span style="color:#B392F0"> origin</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> identity</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> wilson</span></span>
+<span class="line"><span style="color:#E1E4E8">  repo = "github.com/dancinlab/wilson"</span></span>
+<span class="line"><span style="color:#E1E4E8">  ssot = "~/core/wilson/"</span></span>
+<span class="line"><span style="color:#E1E4E8">  succession = "hive → wilson"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 작동 원칙 (→ governance SPEC §Principles) ─────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@I</span><span style="color:#B392F0"> principle</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> identity</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> wilson</span></span>
+<span class="line"><span style="color:#E1E4E8">  principles = ["ai-native","hexa-first","andrej-karpathy-skills","domain-meta-domain","lattice-as-tool","project-governance","step-by-step-decision-gate"]</span></span>
+<span class="line"><span style="color:#E1E4E8">  ssot = "plugins/governance/SPEC.md"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 빌드별 버전 스탬프 (hexa build 자동 발행) ─────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@I</span><span style="color:#B392F0"> version</span><span style="color:#E1E4E8"> v0_0_1 </span><span style="color:#F97583">::</span><span style="color:#B392F0"> identity</span><span style="color:#E1E4E8"> [d=2026-05-13 v=0.0.1 build=Darwin-arm64 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> wilson</span></span>
+<span class="line"><span style="color:#E1E4E8">  toolchain = "hexa post-fix 2026-05-13"</span></span>
+<span class="line"><span style="color:#E1E4E8">  bundle_count = 28</span></span>
+<span class="line"><span style="color:#E1E4E8">  tool_count = 35</span></span>
+<span class="line"></span></code></pre></div>
+  <div><div class="label">github-light</div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: ~/.wilson/identity.tape — wilson identity SSOT (v1.1)</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 정체성 birth (foundational) ───────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@I</span><span style="color:#6F42C1"> birth</span><span style="color:#24292E"> wilson </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> identity</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#24292E">  kind = "hexa-native AI coding agent"</span></span>
+<span class="line"><span style="color:#24292E">  succession_of = hive</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "Minimal core + plugin-everything from day 1"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 능력 범위 ─────────────────────────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@I</span><span style="color:#6F42C1"> scope</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> identity</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> wilson</span></span>
+<span class="line"><span style="color:#24292E">  capabilities = ["read","write","edit","bash","glob","grep","git","gh","hexa","web_fetch","web_search","subagent"]</span></span>
+<span class="line"><span style="color:#24292E">  refuses = ["mass_targeting","supply_chain_compromise","detection_evasion_for_malice"]</span></span>
+<span class="line"><span style="color:#24292E">  authorizes = ["pentesting","ctf","security_research","defensive_use"]</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 출처 / 계보 ───────────────────────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@I</span><span style="color:#6F42C1"> origin</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> identity</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> wilson</span></span>
+<span class="line"><span style="color:#24292E">  repo = "github.com/dancinlab/wilson"</span></span>
+<span class="line"><span style="color:#24292E">  ssot = "~/core/wilson/"</span></span>
+<span class="line"><span style="color:#24292E">  succession = "hive → wilson"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 작동 원칙 (→ governance SPEC §Principles) ─────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@I</span><span style="color:#6F42C1"> principle</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> identity</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> wilson</span></span>
+<span class="line"><span style="color:#24292E">  principles = ["ai-native","hexa-first","andrej-karpathy-skills","domain-meta-domain","lattice-as-tool","project-governance","step-by-step-decision-gate"]</span></span>
+<span class="line"><span style="color:#24292E">  ssot = "plugins/governance/SPEC.md"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 빌드별 버전 스탬프 (hexa build 자동 발행) ─────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@I</span><span style="color:#6F42C1"> version</span><span style="color:#24292E"> v0_0_1 </span><span style="color:#D73A49">::</span><span style="color:#6F42C1"> identity</span><span style="color:#24292E"> [d=2026-05-13 v=0.0.1 build=Darwin-arm64 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> wilson</span></span>
+<span class="line"><span style="color:#24292E">  toolchain = "hexa post-fix 2026-05-13"</span></span>
+<span class="line"><span style="color:#24292E">  bundle_count = 28</span></span>
+<span class="line"><span style="color:#24292E">  tool_count = 35</span></span>
+<span class="line"></span></code></pre></div>
+</div>
+
+<h2>examples/06_domain_log.tape</h2>
+<div class="row">
+  <div><div class="label">github-dark</div><pre class="shiki github-dark" style="background-color:#24292e;color:#e1e4e8" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: HARNESS.tape — per-domain history (v1.1)</span></span>
+<span class="line"><span style="color:#6A737D">#</span></span>
+<span class="line"><span style="color:#6A737D"># Sibling of HARNESS.md (governance principle #4 domain-meta-domain).</span></span>
+<span class="line"><span style="color:#6A737D"># The `## Log` section of HARNESS.md is auto-rendered from this tape</span></span>
+<span class="line"><span style="color:#6A737D"># via `tape_to_md_log HARNESS.md HARNESS.tape 20`.</span></span>
+<span class="line"><span style="color:#6A737D"># Append via git pre-commit hook (path→domain map) or manually.</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 조건 (referenced by `## Conditions` head section) ─────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> c1</span><span style="color:#E1E4E8"> :</span><span style="color:#F97583">=</span><span style="color:#9ECBFF"> "harness.input_loop"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [d=2026-05-12 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#E1E4E8">  text = "wilson -p / interactive TUI claims input loop"</span></span>
+<span class="line"><span style="color:#E1E4E8">  proof = "plugins/harness-cli/main.hexa::harness_cli_activate"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> c2</span><span style="color:#E1E4E8"> :</span><span style="color:#F97583">=</span><span style="color:#9ECBFF"> "harness.streaming"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [d=2026-05-12 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#E1E4E8">  text = "streaming render via host_render(...streaming, delta)"</span></span>
+<span class="line"><span style="color:#E1E4E8">  proof = "core/agent_loop.hexa::_stream_loop"</span></span>
+<span class="line"><span style="color:#F97583">  |></span><span style="color:#E1E4E8"> commit b3706a1</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 변경 이력 (commit-driven via git pre-commit hook) ─────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@A</span><span style="color:#B392F0"> commit_b3706a1</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [d=2026-05-12 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> c1, c2</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "TUI raw-mode + alt-screen lands"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@A</span><span style="color:#B392F0"> commit_184cbc1</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> commit_b3706a1</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "ToolResult out-of-band handoff — agent loop returns {assistant, tool_results}"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@A</span><span style="color:#B392F0"> commit_92004fa</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> commit_184cbc1</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "bidi-stdio primitive unlocks real MCP JSON-RPC client"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@A</span><span style="color:#B392F0"> commit_d916009</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> commit_92004fa</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "wilson build → build/&#x3C;host>-&#x3C;arch>/wilson per-host (stale-shadowing fix)"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 다음 (planned) ────────────────────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@T</span><span style="color:#B392F0"> plan_shift_enter</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> harness</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> commit_d916009</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "Shift+Enter / Alt+Enter multi-line input (deferred to next branch)"</span></span>
+<span class="line"></span></code></pre></div>
+  <div><div class="label">github-light</div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: HARNESS.tape — per-domain history (v1.1)</span></span>
+<span class="line"><span style="color:#6A737D">#</span></span>
+<span class="line"><span style="color:#6A737D"># Sibling of HARNESS.md (governance principle #4 domain-meta-domain).</span></span>
+<span class="line"><span style="color:#6A737D"># The `## Log` section of HARNESS.md is auto-rendered from this tape</span></span>
+<span class="line"><span style="color:#6A737D"># via `tape_to_md_log HARNESS.md HARNESS.tape 20`.</span></span>
+<span class="line"><span style="color:#6A737D"># Append via git pre-commit hook (path→domain map) or manually.</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 조건 (referenced by `## Conditions` head section) ─────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> c1</span><span style="color:#24292E"> :</span><span style="color:#D73A49">=</span><span style="color:#032F62"> "harness.input_loop"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [d=2026-05-12 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#24292E">  text = "wilson -p / interactive TUI claims input loop"</span></span>
+<span class="line"><span style="color:#24292E">  proof = "plugins/harness-cli/main.hexa::harness_cli_activate"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> c2</span><span style="color:#24292E"> :</span><span style="color:#D73A49">=</span><span style="color:#032F62"> "harness.streaming"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [d=2026-05-12 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#24292E">  text = "streaming render via host_render(...streaming, delta)"</span></span>
+<span class="line"><span style="color:#24292E">  proof = "core/agent_loop.hexa::_stream_loop"</span></span>
+<span class="line"><span style="color:#D73A49">  |></span><span style="color:#24292E"> commit b3706a1</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 변경 이력 (commit-driven via git pre-commit hook) ─────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@A</span><span style="color:#6F42C1"> commit_b3706a1</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [d=2026-05-12 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> c1, c2</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "TUI raw-mode + alt-screen lands"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@A</span><span style="color:#6F42C1"> commit_184cbc1</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> commit_b3706a1</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "ToolResult out-of-band handoff — agent loop returns {assistant, tool_results}"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@A</span><span style="color:#6F42C1"> commit_92004fa</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> commit_184cbc1</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "bidi-stdio primitive unlocks real MCP JSON-RPC client"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@A</span><span style="color:#6F42C1"> commit_d916009</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> commit_92004fa</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "wilson build → build/&#x3C;host>-&#x3C;arch>/wilson per-host (stale-shadowing fix)"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 다음 (planned) ────────────────────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@T</span><span style="color:#6F42C1"> plan_shift_enter</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> harness</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> commit_d916009</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "Shift+Enter / Alt+Enter multi-line input (deferred to next branch)"</span></span>
+<span class="line"></span></code></pre></div>
+</div>
+
+<h2>examples/07_meta_domain.tape</h2>
+<div class="row">
+  <div><div class="label">github-dark</div><pre class="shiki github-dark" style="background-color:#24292e;color:#e1e4e8" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: HARNESS+TOOL+PROVIDER.tape — meta-domain joint condition (v1.1)</span></span>
+<span class="line"><span style="color:#6A737D">#</span></span>
+<span class="line"><span style="color:#6A737D"># Sibling of HARNESS+TOOL+PROVIDER.md (governance #4 meta-domain).</span></span>
+<span class="line"><span style="color:#6A737D"># Wilson's "minimal viable agent" meta-domain — held iff all five</span></span>
+<span class="line"><span style="color:#6A737D"># constituent conditions plus the joint M1 are evidenced in the tape.</span></span>
+<span class="line"><span style="color:#6A737D"># Verify via `tape_meta_verify HARNESS+TOOL+PROVIDER.md HARNESS+TOOL+PROVIDER.tape`.</span></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 구성요소 조건 (Cn) ────────────────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> c1</span><span style="color:#E1E4E8"> :</span><span style="color:#F97583">=</span><span style="color:#9ECBFF"> "harness.input_loop"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> meta-domain</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#E1E4E8">  text = "wilson -p / interactive TUI claims input loop"</span></span>
+<span class="line"><span style="color:#E1E4E8">  proof = "plugins/harness-cli/main.hexa::harness_cli_activate"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> c2</span><span style="color:#E1E4E8"> :</span><span style="color:#F97583">=</span><span style="color:#9ECBFF"> "harness.streaming"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> meta-domain</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#E1E4E8">  text = "streaming render via host_render(...streaming, delta)"</span></span>
+<span class="line"><span style="color:#E1E4E8">  proof = "core/agent_loop.hexa::_stream_loop"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> c3</span><span style="color:#E1E4E8"> :</span><span style="color:#F97583">=</span><span style="color:#9ECBFF"> "tool.read_write_edit"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> meta-domain</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#E1E4E8">  text = "tool-core registers read/write/edit/bash/glob/grep at activate"</span></span>
+<span class="line"><span style="color:#E1E4E8">  proof = "plugins/tool-core/main.hexa::tool_core_activate"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> c4</span><span style="color:#E1E4E8"> :</span><span style="color:#F97583">=</span><span style="color:#9ECBFF"> "provider.registered"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> meta-domain</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#E1E4E8">  text = "at least one provider plugin registered"</span></span>
+<span class="line"><span style="color:#E1E4E8">  proof = "plugins/provider-claude-cli/main.hexa::provider_claude_cli_activate"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> c5</span><span style="color:#E1E4E8"> :</span><span style="color:#F97583">=</span><span style="color:#9ECBFF"> "provider.stream_open_next_close"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> meta-domain</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#E1E4E8">  text = "stream_open / stream_next / stream_close produce AsmEvents"</span></span>
+<span class="line"><span style="color:#E1E4E8">  proof = "core/agent_loop.hexa::_stream_loop"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 결합 조건 (Mm — joint of all Cn) ──────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> m1</span><span style="color:#E1E4E8"> :</span><span style="color:#F97583">=</span><span style="color:#9ECBFF"> "joint_turn_closes"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> meta-domain</span><span style="color:#E1E4E8"> [d=2026-05-13 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> c1, c2, c3, c4, c5</span></span>
+<span class="line"><span style="color:#E1E4E8">  text = "host_run_turn(messages, tools, opts) returns Message + ToolResult"</span></span>
+<span class="line"><span style="color:#E1E4E8">  proof = "build/Darwin-arm64/wilson -p 'hi' → assistant text streamed"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#79B8FF;font-weight:bold"># ── 상태 전이 (state transitions over time) ───────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#F97583">@D</span><span style="color:#B392F0"> m1_continuous_24h</span><span style="color:#E1E4E8"> :</span><span style="color:#F97583">=</span><span style="color:#9ECBFF"> "joint_stable_24h"</span><span style="color:#F97583"> ::</span><span style="color:#B392F0"> meta-domain</span><span style="color:#E1E4E8"> [d=2026-05-14 </span><span style="color:#F97583">ok</span><span style="color:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#F97583">  &#x3C;-</span><span style="color:#E1E4E8"> m1</span></span>
+<span class="line"><span style="color:#E1E4E8">  duration_hours = 24</span></span>
+<span class="line"><span style="color:#F97583">  =></span><span style="color:#9ECBFF"> "all constituent conditions still hold — meta-domain stays live"</span></span>
+<span class="line"></span></code></pre></div>
+  <div><div class="label">github-light</div><pre class="shiki github-light" style="background-color:#fff;color:#24292e" tabindex="0"><code><span class="line"><span style="color:#6A737D">#!/usr/bin/env tape</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"><span style="color:#6A737D"># Example: HARNESS+TOOL+PROVIDER.tape — meta-domain joint condition (v1.1)</span></span>
+<span class="line"><span style="color:#6A737D">#</span></span>
+<span class="line"><span style="color:#6A737D"># Sibling of HARNESS+TOOL+PROVIDER.md (governance #4 meta-domain).</span></span>
+<span class="line"><span style="color:#6A737D"># Wilson's "minimal viable agent" meta-domain — held iff all five</span></span>
+<span class="line"><span style="color:#6A737D"># constituent conditions plus the joint M1 are evidenced in the tape.</span></span>
+<span class="line"><span style="color:#6A737D"># Verify via `tape_meta_verify HARNESS+TOOL+PROVIDER.md HARNESS+TOOL+PROVIDER.tape`.</span></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ══════════════════════════════════════════════════════════════</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 구성요소 조건 (Cn) ────────────────────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> c1</span><span style="color:#24292E"> :</span><span style="color:#D73A49">=</span><span style="color:#032F62"> "harness.input_loop"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> meta-domain</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#24292E">  text = "wilson -p / interactive TUI claims input loop"</span></span>
+<span class="line"><span style="color:#24292E">  proof = "plugins/harness-cli/main.hexa::harness_cli_activate"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> c2</span><span style="color:#24292E"> :</span><span style="color:#D73A49">=</span><span style="color:#032F62"> "harness.streaming"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> meta-domain</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#24292E">  text = "streaming render via host_render(...streaming, delta)"</span></span>
+<span class="line"><span style="color:#24292E">  proof = "core/agent_loop.hexa::_stream_loop"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> c3</span><span style="color:#24292E"> :</span><span style="color:#D73A49">=</span><span style="color:#032F62"> "tool.read_write_edit"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> meta-domain</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#24292E">  text = "tool-core registers read/write/edit/bash/glob/grep at activate"</span></span>
+<span class="line"><span style="color:#24292E">  proof = "plugins/tool-core/main.hexa::tool_core_activate"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> c4</span><span style="color:#24292E"> :</span><span style="color:#D73A49">=</span><span style="color:#032F62"> "provider.registered"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> meta-domain</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#24292E">  text = "at least one provider plugin registered"</span></span>
+<span class="line"><span style="color:#24292E">  proof = "plugins/provider-claude-cli/main.hexa::provider_claude_cli_activate"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> c5</span><span style="color:#24292E"> :</span><span style="color:#D73A49">=</span><span style="color:#032F62"> "provider.stream_open_next_close"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> meta-domain</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#24292E">  text = "stream_open / stream_next / stream_close produce AsmEvents"</span></span>
+<span class="line"><span style="color:#24292E">  proof = "core/agent_loop.hexa::_stream_loop"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 결합 조건 (Mm — joint of all Cn) ──────────────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> m1</span><span style="color:#24292E"> :</span><span style="color:#D73A49">=</span><span style="color:#032F62"> "joint_turn_closes"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> meta-domain</span><span style="color:#24292E"> [d=2026-05-13 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> c1, c2, c3, c4, c5</span></span>
+<span class="line"><span style="color:#24292E">  text = "host_run_turn(messages, tools, opts) returns Message + ToolResult"</span></span>
+<span class="line"><span style="color:#24292E">  proof = "build/Darwin-arm64/wilson -p 'hi' → assistant text streamed"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;font-weight:bold"># ── 상태 전이 (state transitions over time) ───────────────────</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49">@D</span><span style="color:#6F42C1"> m1_continuous_24h</span><span style="color:#24292E"> :</span><span style="color:#D73A49">=</span><span style="color:#032F62"> "joint_stable_24h"</span><span style="color:#D73A49"> ::</span><span style="color:#6F42C1"> meta-domain</span><span style="color:#24292E"> [d=2026-05-14 </span><span style="color:#D73A49">ok</span><span style="color:#24292E">]</span></span>
+<span class="line"><span style="color:#D73A49">  &#x3C;-</span><span style="color:#24292E"> m1</span></span>
+<span class="line"><span style="color:#24292E">  duration_hours = 24</span></span>
+<span class="line"><span style="color:#D73A49">  =></span><span style="color:#032F62"> "all constituent conditions still hold — meta-domain stays live"</span></span>
+<span class="line"></span></code></pre></div>
+</div>
+
+</body></html>

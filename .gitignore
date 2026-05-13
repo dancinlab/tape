@@ -28,3 +28,4 @@ venv/
 
 # hexa runtime hook markers (created by `hexa run` selftest)
 state/
+node_modules/
