@@ -13,6 +13,7 @@
   <img alt="Types" src="https://img.shields.io/badge/types-11-informational">
   <img alt="Edges" src="https://img.shields.io/badge/edges-7-informational">
   <img alt="Placements" src="https://img.shields.io/badge/placements-5-informational">
+  <img alt="Algorithms" src="https://img.shields.io/badge/algorithms-19-informational">
   <img alt="Sibling" src="https://img.shields.io/badge/sibling-n6%20·%20hxc%20·%20n12-blueviolet">
 </p>
 
@@ -160,7 +161,7 @@ tape/
 ├── spec/
 │   └── tape.md                   v1 grammar
 ├── examples/                     valid .tape samples
-├── algorithms/                   16 hexa-lang reference modules
+├── algorithms/                   19 hexa-lang reference modules
 ├── tool/                         planned lint / replay / grade-audit CLIs
 ├── syntaxes/
 │   └── tape.tmLanguage.json      TextMate grammar
