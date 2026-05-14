@@ -1,4 +1,4 @@
-# Agent-Execution Trace — `.tape` format v1.1 (spec, 2026-05-13)
+# Agent-Execution Trace — `.tape` format v1.2 (spec, 2026-05-14)
 
 > Standalone mirror. Provenance: extracted from wilson harness-cli runtime instrumentation discussion (2026-05-13), patched with identity + domain-tape integration (v1.1, same day). Wilson today scatters runtime state across five `.jsonl` surfaces (transcript, recap, recap-index, cost ledger, task list) AND carries identity as a hard-coded 1-line block AND tracks per-domain history via author-discipline-only `## Log` sections; `.tape` is the typed grammar that collapses runtime, identity, and domain history into one append-only causal trace across 5 placements. Path references to wilson plugin ids are provenance markers; the grammar itself is self-contained and fully described below.
 
@@ -83,8 +83,19 @@ Fourth sibling of [`n6`](https://github.com/dancinlab/n6) (semantic / atlas laye
 | `@P` | Provider event — open / close / stream-delta | `@P claude-cli open :: provider [T1 N12 ok]` |
 | `@?` | Anomaly — error / abort / rate-limit / panic | `@? abort001 = rate_limited :: provider [T8 N497 cancelled]` |
 | `@I` | Identity claim — foundational, non-runtime declaration (birth / scope / principle / version / succession) | `@I birth s_wilson :: identity [d=2026-05-13 ok]` |
+| `@X` | (v1.2) External citation — third-party standard / paper / vendor doc / regulation. Carries `url` / `scope` / `version` keys. | `@X x1 := "ISO 37120" :: standard [iso active]` |
+| `@F` | (v1.2) Forbidden pattern — formal "deny:" rule with `pattern` / `why` keys. Replaces ad-hoc `forbid =` payload. | `@F f1 := "external-lattice-fit" :: governance [required]` |
+| `@N` | (v1.2) Note / LLM-only hint — plugins skip; human + LLM read. Replaces `// note:` prose comments. | `@N n1 := "build-tip" :: note [active]` |
+| `@C` | (v1.2) Config / parameter — static value (port / timeout / path). Replaces ad-hoc `key = value` in @P entries. | `@C c1 := "session-dir" :: config [active]` |
+| `@L` | (v1.2) Layout / directory structure — `path -> "purpose"` body lines. Replaces markdown tree tables. | `@L l1 := "repo-layout" :: structure [active]` |
+| `@V` | (v1.2) Spec version self-declaration — file announces which `.tape` version + extensions it uses. | `@V := "tape" :: spec  version = "1.2"` |
 
-The alphabet is **closed at 11**. New *runtime* categories must map onto an existing type (e.g. an MCP server start is a `@P` event with `domain=mcp`, not a new type); cost extensions to `@K`; permissions decisions to `@D`; meta-domain condition state to `@D` with `domain=meta-domain`; per-build version stamps to `@I` with sub-kind `version`. The closed alphabet is what makes downstream consumers (replay, audit, promotion adapters) tractable. `@I` is the *only* non-runtime type — it carries declarative claims about what the agent **IS** rather than what it **DID**; everything else is runtime.
+The alphabet is **closed at 17** (11 runtime + `@I` foundational + 5 declarative). New *runtime* categories must map onto an existing type (e.g. an MCP server start is a `@P` event with `domain=mcp`, not a new type); cost extensions to `@K`; permissions decisions to `@D`; meta-domain condition state to `@D` with `domain=meta-domain`; per-build version stamps to `@I` with sub-kind `version`. The closed alphabet is what makes downstream consumers (replay, audit, promotion adapters) tractable.
+
+**Three classes of types (v1.2)**:
+- **Runtime (10)** `@S @U @A @T @R @H @D @K @P @?` — events that happened, time-stamped (`T<n> N<n>`).
+- **Foundation (1)** `@I` — declarative identity claims about what the agent IS, date-stamped (`d=…`).
+- **Declarative (6, v1.2)** `@X @F @N @C @L @V` — static facts (no causal `<-` required), used by `AGENTS.tape` and other configuration-style tapes. Date-stamped or stateless.
 
 ## Grade markers
 
@@ -102,8 +113,16 @@ The alphabet is **closed at 11**. New *runtime* categories must map onto an exis
 | `d=<YYYY-MM-DD>` | ISO date stamp (used by `@I` and `@D :: meta-domain` events instead of `T<n> N<n>`) |
 | `superseded` | (v1.1) a prior `@I` claim was replaced by a later one with the same `<id>` family |
 | `v=<version>` | (v1.1) version tag — present on `@I version` and `@P build` |
+| `required` | (v1.2) governance rule that MUST be obeyed — violation triggers deny |
+| `recommended` | (v1.2) governance rule that SHOULD be obeyed — violation triggers warn |
+| `optional` | (v1.2) governance hint — violation is silent |
+| `draft` | (v1.2) proposed rule — not yet enforced |
+| `active` | (v1.2) currently in effect (default for declarative entries — implicit if omitted) |
+| `deprecated` | (v1.2) superseded but kept for context — `~>` edge points to replacement |
+| `allow:<scope>` | (v1.2) scope-bound allowance, e.g. `[allow:read]` `[allow:write/docs]` |
+| `deny:<scope>` | (v1.2) scope-bound denial, e.g. `[deny:write/LATTICE_POLICY.md]` |
 
-Composable: `[T2 N48 ok]`, `[T5 N91 denied]`, `[T0 N0 ok]`, `[d=2026-05-13 ok]`, `[d=2026-05-13 v=0.0.1 build=Darwin-arm64 ok]`. Exactly one of `{ok, err, denied, cancelled, partial, superseded}` per bracket. `T<n>` and `N<n>` are optional but recommended for any non-session runtime event; `@I` events use `d=...` instead.
+Composable: `[T2 N48 ok]`, `[T5 N91 denied]`, `[d=2026-05-13 ok]`, `[required]`, `[recommended draft]`, `[allow:read deny:write]`. Exactly one of the **runtime** set `{ok, err, denied, cancelled, partial, superseded}` per bracket when present. Governance / scope tags compose freely with each other but not with runtime delivery tags (an `@F` forbidden-pattern entry doesn't have "delivery state"). `T<n>` and `N<n>` are optional but recommended for any non-session runtime event; `@I` events use `d=...` instead; v1.2 declarative entries (`@X @F @N @C @L @V`) typically use `d=...` or omit time stamps entirely.
 
 > Verification grade (n6's `[10*]` / `[11*]`) does **not** apply to `.tape` — runtime events carry *what happened* not *what's true*. A tape entry's claim is verified by promoting it to a `.n6` atom via `tape_to_n6`.
 
@@ -120,8 +139,15 @@ Continuation lines are indented exactly two spaces and prefixed with one of:
 | `~>` | supersedes | this event makes a prior listed one moot (used by `@S end ~> s001`) |
 | `\|>` | verified_by | a validation pass — governance `ok`, hook `ok`, `ToolResult.is_error=false` |
 | `!!` | aborts | error / panic / cancel-with-cause; payload is the aborted-id or reason |
+| `<:` | (v1.2) specializes / is-a | this entry is a specialization of the listed parent (identity hierarchy) |
+| `:>` | (v1.2) generalizes / extends | inverse of `<:` — parent points down to specializations |
+| `?>` | (v1.2) soft-depends | non-binding dependency / recommended prerequisite |
+| `!>` | (v1.2) conflicts-with | this entry is mutually-exclusive with the listed id(s) |
+| `@>` | (v1.2) projects-to / renders-to | declares a generator target — e.g. `@> AGENTS.md` means this entry contributes to the AGENTS.md rendition |
 
 Multiple edges of the same kind are allowed; one edge per line. Multi-id payload uses comma-separated ids: `<- t001, t002, t003`.
+
+The **v1 edge set** `{<-, ->, =>, ==, ~>, |>, !!}` covers runtime causality + effect description. The **v1.2 additions** `{<:, :>, ?>, !>, @>}` cover declarative-static relationships (hierarchy, recommendation, conflict, generator targeting) needed by `AGENTS.tape` / `@F` / `@X` / `@C` / `@L` / `@V` entries. A v1.1 reader MUST skip-not-reject any v1.2 edge per forward-compatibility rule.
 
 ## Domain alphabet (open set)
 
@@ -282,13 +308,121 @@ A meta-domain file enumerates constituent conditions Cn and joint conditions Mm.
 
 `wilson domain status` (`core/main.hexa::_cmd_domain_status`) walks every `<DOMAIN>.md` + `.tape` pair and prints a one-screen matrix: per-meta-domain Mm state, condition coverage %, last-log-entry timestamp.
 
+## Payload syntax (v1.2)
+
+Body lines (indented 2 spaces under an entry header) carry the entry's data. v1.2 standardises four payload forms beyond the v1.1 single-line `key = "value"`:
+
+```tape
+@D g1 := "honest-caveat-first" :: governance [required]
+  rule = "Every claim coupling n=6 to an external phenomenon ships a one-line honest caveat."
+  why = "raw#10 C3 — overclaim destroys credibility"
+  scales = [multiverse, universe, galaxy, planet, country, city]
+  applies-to <<~EOF
+    Every section in README.md
+    Every cell in SCALE.md
+    Every entry in this file that mentions n=6 vs external entity
+  EOF
+  proof = "see [@x1] §4 and `LATTICE_POLICY.md` §1.2"
+```
+
+| Form | Grammar | Use |
+|---|---|---|
+| **Single-line string** | `key = "value"` | Most fields. Inline `\"` escapes if needed. |
+| **Array literal** | `key = [a, b, c]` (or `[\"a\", \"b\"]` if quoted) | Ordered lists — scales, phases, options, choices. |
+| **Heredoc** | `key <<~EOF` … `EOF` (`~` strips common leading indent) | Multi-line prose / code block. Ends on EOF token alone on a line. |
+| **Inline citation** | `"see [@<id>] §..."` inside a quoted value | Reference another entry in the same file by id — like markdown footnote. |
+| **Backtick code** | `` `cmd or path` `` inside a quoted value | Inline code-span — render as monospace by adapters. |
+
+Consumers MAY parse only the forms they need; `[@<id>]` is informational (no semantic dependency).
+
+## Grammar primer (v1.2 — mandatory header for `AGENTS.tape`, recommended for cold-read tapes)
+
+Any `AGENTS.tape` (and any tape file likely to be cold-read by an LLM or new contributor) SHOULD begin with this exact ~35-line comment header. The primer makes the file self-describing — an LLM seeing it for the first time (via `CLAUDE.md` symlink or otherwise) immediately knows how to parse the rest.
+
+```
+#!/usr/bin/env tape
+# ══════════════════════════════════════════════════════════════════════
+# .tape v1.2 — grammar primer (cold-read by any LLM / agent / human)
+# ══════════════════════════════════════════════════════════════════════
+# Form: each entry is `@<type> <id> := "<subject>" :: <kind> [<grades>]`
+#       optionally followed by body lines (2-space indent) — key=value,
+#       edges (<- -> => …), or quoted prose.
+#
+# ENTRY TYPES (17):
+#   Runtime (10): @S session  @U user  @A assistant  @T tool-call  @R result
+#                 @H hook  @D decision  @K cost  @P provider  @? anomaly
+#   Foundation:   @I identity-claim
+#   Declarative:  @X external-citation  @F forbidden-pattern  @N note
+#                 @C config  @L layout  @V spec-version
+#
+# EDGES (12, on body lines, 2-space indent):
+#   Causal:     <- caused-by   -> triggers   == continues
+#               ~> supersedes  !! aborts     |> verified-by
+#   Effect:     => produces (followed by quoted natural-language)
+#   Structural: <: specializes  :> generalizes  ?> soft-depends
+#               !> conflicts-with  @> projects-to (e.g. @> AGENTS.md)
+#
+# GRADE TAGS (in [...] on entry header):
+#   Delivery:   ok · err · denied · cancelled · partial · superseded
+#   Governance: required · recommended · optional · draft · active · deprecated
+#   Scoped:     allow:<x> · deny:<x>
+#   Time/index: T<n> (turn)  N<n> (wall-sec)  d=<YYYY-MM-DD>
+#
+# PAYLOAD SYNTAX (body lines):
+#   key = "value"           single-line string
+#   key = [a, b, c]         array literal
+#   key <<~EOF              heredoc (multi-line; ends with EOF on own line)
+#     multi-line text
+#   EOF
+#   "see [@x1] §3"          inline citation by entry id
+#   `cmd or path`           backtick code-span (inline only)
+#
+# Full spec: ~/core/tape/spec/tape.md (or github.com/dancinlab/tape)
+# ══════════════════════════════════════════════════════════════════════
+```
+
+The primer is a **comment block** — the tape parser ignores it (lines starting with `#` are skipped per §"Comments and section dividers"). Its sole purpose is making the file self-describing to first-time readers.
+
+After the primer, the canonical first non-comment line is `@V` declaring the spec version:
+
+```tape
+@V := "tape" :: spec
+  version = "1.2"
+  uses = [@X, @F, @N, @C, @L, "<:", "@>", "[required]"]
+```
+
+## AGENTS.tape pattern (v1.2 — cross-project agent-harness file)
+
+`AGENTS.tape` is the dancinlab convention name for the file that replaces `AGENTS.md` (the [agents.md](https://agents.md/) standard) across every repo. It is the **declarative + identity** half of `.tape` — no runtime events. Recommended top-level structure:
+
+```
+AGENTS.tape
+├── §0 grammar primer (the mandatory ~35-line comment block above)
+├── §1 @V spec-version declaration
+├── §2 @I identity-claim entries  (what this project IS)
+├── §3 @C config entries          (paths · ports · timeouts · defaults)
+├── §4 @L layout entry            (directory structure)
+├── §5 @D :: governance entries   (g1..gN — project rules, [required] / [recommended])
+├── §6 @F forbidden-pattern entries (deny-rules)
+├── §7 @X external-citation       (standards · papers · vendor docs)
+├── §8 @N notes                   (LLM-only hints, build tips)
+└── §9 @H :: generator hooks      (e.g. `@> AGENTS.md` for fallback markdown emission)
+```
+
+A separate `SEED.tape` (or per-session `<sid>.tape`) carries the **runtime** half — `@S` / `@U` / `@A` / `@T` / `@R` / `@D :: decision` (open) / `@?` (anomalies) / `@T plan` (planned actions) / log entries. The split keeps governance stable while runtime evolves.
+
+**Symlink convention**: each repo SHOULD ship `CLAUDE.md → AGENTS.tape` (symlink) so Claude Code's `CLAUDE.md` auto-discovery picks up the grammar primer first. Aider / Cursor / future agents.md ecosystem support for `AGENTS.tape` proposed upstream.
+
+**Fallback generator**: `tape_to_agents_md(AGENTS.tape) → AGENTS.md` (per `@H :: generator` hooks with `@> AGENTS.md` edge) emits a markdown rendition for tooling that doesn't speak `.tape` natively. The `.tape` is the SSOT; the `.md` is a derived view.
+
 ## Versioning
 
 - **v1** (2026-05-13) — 10 types · 7 edges · 5 delivery markers · open domain alphabet. Single placement (per-session tape).
-- **v1.1** (this spec, 2026-05-13) — 11 types (adds `@I` identity) · 7 edges (unchanged) · 6 grade markers (adds `superseded` for `@I`) · open domain alphabet extended with `identity` / `meta-domain` / `atlas`. Five placements (per-session, identity singleton, recap index, per-domain, cross-project atlas). Adds 4 algorithms: `tape_render_identity`, `tape_to_md_log`, `tape_meta_verify`, `tape_domain_status`.
+- **v1.1** (2026-05-13) — 11 types (adds `@I` identity) · 7 edges (unchanged) · 6 grade markers (adds `superseded` for `@I`) · open domain alphabet extended with `identity` / `meta-domain` / `atlas`. Five placements (per-session, identity singleton, recap index, per-domain, cross-project atlas). Adds 4 algorithms: `tape_render_identity`, `tape_to_md_log`, `tape_meta_verify`, `tape_domain_status`.
+- **v1.2** (this spec, 2026-05-14) — 17 types (adds `@X` external-citation, `@F` forbidden-pattern, `@N` note, `@C` config, `@L` layout, `@V` spec-version) · 12 edges (adds `<:` specializes, `:>` generalizes, `?>` soft-depends, `!>` conflicts-with, `@>` projects-to) · governance grade tags (`required` / `recommended` / `optional` / `draft` / `active` / `deprecated` / `allow:<x>` / `deny:<x>`) · payload-syntax extensions (heredoc / array literal / `[@id]` inline citation / backtick code-span) · grammar primer header convention · `AGENTS.tape` pattern (replaces `AGENTS.md` cross-project). Adds 1 algorithm: `tape_to_agents_md` (fallback markdown generator).
 - **v2** (reserved) — anticipated additions: structured payload on `@K` (per-model token breakdown); binary attachment side-car (analog of wilson's `_attachments` for `@R` lines pointing to images / files); n6-style verification-grade overlay for adapters that need it.
 
-Forward-compatibility rule: a v1.1 reader MUST skip any header line whose `<type>` is not in the v1.1 alphabet of {S, U, A, T, R, H, D, K, P, I, ?} rather than reject. Edge operators outside the v1 set of {`<-`, `->`, `=>`, `==`, `~>`, `\|>`, `!!`} MUST also be skipped rather than rejected. v1 readers encountering an `@I` line MUST skip-not-reject per the same rule.
+Forward-compatibility rule: a v1.1 reader MUST skip any header line whose `<type>` is not in the v1.1 alphabet of {S, U, A, T, R, H, D, K, P, I, ?} rather than reject. Edge operators outside the v1 set of {`<-`, `->`, `=>`, `==`, `~>`, `\|>`, `!!`} MUST also be skipped rather than rejected. v1 readers encountering an `@I` line MUST skip-not-reject per the same rule. v1.1 readers encountering v1.2 types `{X, F, N, C, L, V}` or v1.2 edges `{<:, :>, ?>, !>, @>}` MUST skip-not-reject per the same rule.
 
 ## Cross-references
 
