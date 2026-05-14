@@ -1,0 +1,183 @@
+# tape_walk_tree — derive a project tree from all dancinlab AGENTS.tape files
+#
+# Reads every `~/core/*/AGENTS.tape` (or a custom glob), extracts each file's
+# first `@I id001` block, builds an adjacency map keyed by `parent =` value,
+# and renders a top-down tree starting from `"dancinlab"` org-root.
+#
+# Per tape spec v1.2 §"Project-tree convention".
+
+use "tape/parse"
+use "stdlib/fs"
+use "stdlib/string"
+
+fn tape_walk_tree(root_glob: string = "~/core/*/AGENTS.tape") -> string {
+    let nodes = scan_id001_entries(root_glob)
+    let adjacency = build_parent_map(nodes)
+    return render_tree("dancinlab", adjacency, nodes, 0)
+}
+
+# ─── §1 Scan ─────────────────────────────────────────────────────────
+
+struct ProjectNode {
+    repo: string         # e.g. "hexa-fusion"
+    kind: string         # e.g. "🔥 HEXA-Fusion family — fusion · plasma"
+    brief: string        # e.g. "fusion physics standalone · 12 reactor closures"
+    parent: string       # e.g. "dancinlab/echoes" or "dancinlab"
+    siblings: [string]   # optional list
+}
+
+fn scan_id001_entries(glob: string) -> [ProjectNode] {
+    let paths = fs_glob(glob)
+    let nodes: [ProjectNode] = []
+    for path in paths {
+        let content = fs_read_text(path)
+        let entry = extract_first_id001(content)
+        if entry != void {
+            nodes.push(entry)
+        }
+    }
+    return nodes
+}
+
+fn extract_first_id001(content: string) -> ProjectNode {
+    # Find `@I id001 := "<repo>"` header, then read body keys until next blank/@
+    let lines = content.split("\n")
+    let mut in_block = false
+    let mut node = ProjectNode{
+        repo = "",
+        kind = "",
+        brief = "",
+        parent = "",
+        siblings = []
+    }
+    for line in lines {
+        if line.starts_with("@I id001") {
+            in_block = true
+            # parse repo name from `@I id001 := "<repo>"`
+            let m = line.find("\"")
+            if m > -1 {
+                let rest = line.slice(m + 1)
+                let end = rest.find("\"")
+                if end > -1 {
+                    node.repo = rest.slice(0, end)
+                }
+            }
+            continue
+        }
+        if in_block {
+            # body is 2-space indented; once we see a non-indented line, block ends
+            if not line.starts_with("  ") and line.trim() != "" {
+                break
+            }
+            let trimmed = line.trim()
+            if trimmed.starts_with("kind ") or trimmed.starts_with("kind=") {
+                node.kind = extract_value(trimmed)
+            } else if trimmed.starts_with("brief ") or trimmed.starts_with("brief=") {
+                node.brief = extract_value(trimmed)
+            } else if trimmed.starts_with("parent ") or trimmed.starts_with("parent=") {
+                node.parent = extract_value(trimmed)
+            } else if trimmed.starts_with("siblings ") or trimmed.starts_with("siblings=") {
+                node.siblings = extract_array(trimmed)
+            }
+        }
+    }
+    if node.repo == "" { return void }
+    return node
+}
+
+fn extract_value(line: string) -> string {
+    # `key = "value"` → `value`
+    let eq = line.find("=")
+    if eq < 0 { return "" }
+    let rest = line.slice(eq + 1).trim()
+    if rest.starts_with("\"") {
+        let end = rest.slice(1).find("\"")
+        if end > -1 { return rest.slice(1, end + 1) }
+    }
+    return rest
+}
+
+fn extract_array(line: string) -> [string] {
+    # `siblings = [a, b, c]` → ["a", "b", "c"]
+    let eq = line.find("=")
+    if eq < 0 { return [] }
+    let rest = line.slice(eq + 1).trim()
+    if not rest.starts_with("[") or not rest.ends_with("]") { return [] }
+    let inside = rest.slice(1, rest.len() - 1)
+    return inside.split(",").map(s -> s.trim())
+}
+
+# ─── §2 Adjacency ────────────────────────────────────────────────────
+
+fn build_parent_map(nodes: [ProjectNode]) -> #{ string : [string] } {
+    # parent → [child-repo, ...]
+    let map: #{ string : [string] } = #{}
+    for node in nodes {
+        let p = normalize_parent(node.parent)
+        if not (p in map) { map[p] = [] }
+        map[p].push(node.repo)
+    }
+    return map
+}
+
+fn normalize_parent(parent: string) -> string {
+    # Accepts: "dancinlab", "dancinlab/echoes", "dancinlab/echoes (...)", or prose
+    # Returns: canonical form "dancinlab" or "dancinlab/<repo>"
+    let trimmed = parent.trim()
+    if trimmed == "" or trimmed == "dancinlab" { return "dancinlab" }
+    if trimmed.starts_with("dancinlab/") {
+        let part = trimmed.split(" ")[0]   # drop trailing "(...)" descriptor
+        return part
+    }
+    # prose form like "dancinlab ecosystem · cites echoes/LATTICE_POLICY..." → default to org-root
+    return "dancinlab"
+}
+
+# ─── §3 Render ───────────────────────────────────────────────────────
+
+fn render_tree(node_key: string, adjacency: #{ string : [string] }, nodes: [ProjectNode], depth: int) -> string {
+    let mut out = ""
+    let children = adjacency.get(node_key, [])
+    children.sort()
+    let last_idx = children.len() - 1
+    for i, child in children {
+        let node = find_node(child, nodes)
+        let prefix = "  ".repeat(depth)
+        let branch = if i == last_idx { "└── " } else { "├── " }
+        let label = if node == void { child } else { format_label(node) }
+        out = out + prefix + branch + label + "\n"
+        # recurse into this child's children
+        let child_key = "dancinlab/" + child
+        if child_key in adjacency {
+            out = out + render_tree(child_key, adjacency, nodes, depth + 1)
+        }
+    }
+    return out
+}
+
+fn find_node(repo: string, nodes: [ProjectNode]) -> ProjectNode {
+    for n in nodes { if n.repo == repo { return n } }
+    return void
+}
+
+fn format_label(node: ProjectNode) -> string {
+    let emoji_kind = node.kind   # kind starts with emoji
+    let brief = if node.brief == "" { "(no brief)" } else { node.brief }
+    return emoji_kind + " — " + brief
+}
+
+# ─── §4 CLI / entry ──────────────────────────────────────────────────
+
+fn main(args: [string]) -> int {
+    let glob = if args.len() > 1 { args[1] } else { "~/core/*/AGENTS.tape" }
+    let check = args.contains("--check")
+    let tree = tape_walk_tree(glob)
+    println("dancinlab/")
+    print(tree)
+    if check {
+        # placeholder: compare against golden tree at ~/core/atlas/.golden-tree.txt
+        # for now, just emit OK
+        eprintln("# tape_walk_tree --check: not implemented yet (golden-tree compare pending)")
+    }
+    return 0
+}

@@ -315,7 +315,6 @@ Body lines (indented 2 spaces under an entry header) carry the entry's data. v1.
 ```tape
 @D g1 := "honest-caveat-first" :: governance [required]
   rule = "Every claim coupling n=6 to an external phenomenon ships a one-line honest caveat."
-  why = "raw#10 C3 — overclaim destroys credibility"
   scales = [multiverse, universe, galaxy, planet, country, city]
   applies-to <<~EOF
     Every section in README.md
@@ -414,6 +413,70 @@ A separate `SEED.tape` (or per-session `<sid>.tape`) carries the **runtime** hal
 **Symlink convention**: each repo SHOULD ship `CLAUDE.md → AGENTS.tape` (symlink) so Claude Code's `CLAUDE.md` auto-discovery picks up the grammar primer first. Aider / Cursor / future agents.md ecosystem support for `AGENTS.tape` proposed upstream.
 
 **Fallback generator**: `tape_to_agents_md(AGENTS.tape) → AGENTS.md` (per `@H :: generator` hooks with `@> AGENTS.md` edge) emits a markdown rendition for tooling that doesn't speak `.tape` natively. The `.tape` is the SSOT; the `.md` is a derived view.
+
+## Project-tree convention (v1.2 — for `AGENTS.tape` ecosystem)
+
+Each `AGENTS.tape`'s top-level `@I id001` (the repo identity) carries tree-edge fields that let an algorithm (`tape_walk_tree`) crawl every `~/core/*/AGENTS.tape` and emit an aggregate project tree as a *derived view*. SSOT stays per-repo; the tree is computed.
+
+### `@I id001` enhanced schema
+
+```tape
+@I id001 := "<repo-name>" :: identity-claim [d=<YYYY-MM-DD> active]
+  kind     = "<emoji + 1-line classification>"        # required (e.g. "🔥 HEXA-Fusion family — fusion · plasma")
+  brief    = "<1-line plain description>"             # required (e.g. "fusion physics standalone · 12 reactor closures · 122/122 EXACT")
+  parent   = "dancinlab/<parent-repo>" | "dancinlab"  # required (org-root or another repo)
+  siblings = [<repo>, <repo>, ...]                     # optional (peers under the same parent)
+```
+
+`parent` rules:
+- Domain-family standalones extracted from echoes (hexa-fusion · hexa-chip · hexa-mind · …) → `"dancinlab/echoes"`
+- Sibling formats (n6 · hxc · n12 · tape) → `"dancinlab"` (org-root)
+- Sub-projects with a clearly-named parent (anima/hexa-senses · anima/anima-experience · echoes/echoes-experience) → `"dancinlab/<parent>"`
+- All other dancinlab repos → `"dancinlab"`
+
+### `tape_walk_tree` algorithm (`algorithms/tape_walk_tree.hexa`)
+
+Input: a directory glob (default `~/core/*/AGENTS.tape`).
+
+Output: a tree rendered as nested markdown bullets (or `@L` layout block for embedding in another tape). Steps:
+
+1. Scan all matching `AGENTS.tape` files.
+2. For each, extract the first `@I id001` block (header + body keys: `kind` · `brief` · `parent` · `siblings`).
+3. Build adjacency map keyed by `parent`.
+4. Render top-down starting from `"dancinlab"` root, recursing through children sorted alphabetically.
+5. Each node prints as `<emoji-from-kind> <repo> — <brief>`.
+
+Example render:
+
+```
+dancinlab/
+├── 💎 hexa-lang — native compiler with atlas-bound theorems
+├── 🪞 echoes — discoveries catalog · LATTICE_POLICY home
+│   ├── 🔥 hexa-fusion — fusion physics · 12 reactor closures
+│   ├── 💻 hexa-chip — semiconductor architecture · 6 stages
+│   ├── … (17 domain families)
+│   └── 🪞 echoes-experience — σφτ interactive proof HF Space
+├── 🏐 wilson — hexa-native AI coding agent · 28-plugin bundle
+├── 🧠 anima — Living Consciousness Agent
+│   ├── ✨ anima-experience — MI visualizer HF Space
+│   └── 👁️ hexa-senses — 5-verb sensory substrate
+├── 🏛 hexa-scale — multi-scale architecture (6×4=24 lattice)
+├── ⊳ tape — Agent-Execution Trace spec
+├── ⬢ n6 — semantic atom layer
+├── ⬡ hxc — byte-canonical wire
+├── ⬨ n12 — 12-axis sparse cube
+└── … (other apps, tools, archives)
+```
+
+### Cross-file references
+
+Tape edges (`<:` `:>` `<-` etc.) are within-file only per §"Edge operators". Cross-file parent edges use the `parent = "<string>"` payload key, which `tape_walk_tree` treats as a graph edge. For richer cross-references (URLs · DOIs · papers · vendor docs), use `@X external-citation`.
+
+### Drift avoidance
+
+- SSOT is per-repo (each AGENTS.tape carries its own `@I id001`); no atlas-level master file.
+- A CI job (`tape_walk_tree --check`) can compare current per-repo `parent`/`siblings` claims against a golden tree to catch typos.
+- New repos automatically appear in the tree after their first `AGENTS.tape` ships with `parent = "..."`.
 
 ## Versioning
 
