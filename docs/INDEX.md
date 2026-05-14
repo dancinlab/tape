@@ -16,7 +16,7 @@
 
 ## Algorithms
 
-- [`algorithms/`](../algorithms/) — 18 reference hexa-lang modules. v1 (12): guarded append, bootstrap, replay, grep, health, compaction, indexing, dedup, KV-cache probe, JSONL adapter, n6 / hxc promotion stubs. v1.1 (+6): `tape_render_identity`, `tape_to_md_log`, `tape_meta_verify`, `tape_domain_status`, `tape_to_md` (P1 whole-tape projection), `md_to_tape` (P2 one-shot migration).
+- [`algorithms/`](../algorithms/) — 19 reference hexa-lang modules. v1 (12): guarded append, bootstrap, replay, grep, health, compaction, indexing, dedup, KV-cache probe, JSONL adapter, n6 / hxc promotion stubs. v1.1 (+7): `tape_render_identity`, `tape_to_md_log`, `tape_meta_verify`, `tape_domain_status`, `tape_to_md` (P1), `md_to_tape` (P2), `tape_query_table` (P4 table CLI view).
 - [`algorithms/README.md`](../algorithms/README.md) — module catalog + usage shape
 
 ## Tools

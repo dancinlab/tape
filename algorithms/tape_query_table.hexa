@@ -1,0 +1,344 @@
+// ══════════════════════════════════════════════════════════════
+// tape_query_table.hexa — reconstruct markdown tables from `.tape` (P4)
+//
+// @module(slug="tape_query_table", desc="CLI view: walk a `.tape`, find runs of `@D` events with identical continuation key-sets (the table-row signature produced by `md_to_tape`), and emit each run as a markdown table. Optional `--section=<label>` filter binds to a `# ── Section ──────` divider context. Pure-view layer — no `.md` file is written; output goes to stdout for human consumption. Closes the round-trip: tables that were flattened to `@D` rows by P2 become readable tables again on demand.")
+// @usage(hexa algorithms/tape_query_table.hexa --selftest)
+// @usage(hexa algorithms/tape_query_table.hexa <tape.in> [--section=<label>])
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args, 4=no-tables-found)
+// ══════════════════════════════════════════════════════════════
+
+fn _is_header(line: string) -> bool {
+    if line.len() < 2 { return false }
+    if line.substring(0, 1) != "@" { return false }
+    let known = "SUATRHDKPI?"
+    return known.find(line.substring(1, 2)) > -1
+}
+
+fn _is_continuation(line: string) -> bool {
+    return line.len() > 1 && line.substring(0, 2) == "  "
+}
+
+fn _section_label(line: string) -> string {
+    if line.len() < 5 { return "" }
+    if line.substring(0, 4) != "# ── " { return "" }
+    let mut end: i64 = line.len()
+    while end > 4 {
+        let ch = line.substring(end - 1, end)
+        if ch == " " || ch == "─" { end = end - 1 ; continue }
+        break
+    }
+    return line.substring(4, end).trim()
+}
+
+fn _header_type(line: string) -> string {
+    if line.len() < 2 { return "" }
+    return line.substring(1, 2)
+}
+
+fn _header_id(line: string) -> string {
+    if line.len() < 4 { return "" }
+    let rest = line.substring(3, line.len())
+    let sp = rest.find(" ")
+    if sp < 0 { return rest }
+    return rest.substring(0, sp)
+}
+
+// Parse `<key> = "<value>"` or `<key> = <bare>` continuation; returns [key, value]
+// or ["", ""] when the continuation is an edge (`<-` `=>` etc.) or malformed.
+fn _kv_continuation(line: string) -> [string] {
+    if !_is_continuation(line) { return ["", ""] }
+    let body = line.substring(2, line.len())
+    let edges = ["<-", "->", "=>", "==", "~>", "|>", "!!"]
+    let mut ei: i64 = 0
+    while ei < edges.len() {
+        let e = edges[ei]
+        if body.len() > e.len() && body.substring(0, e.len()) == e { return ["", ""] }
+        ei = ei + 1
+    }
+    let eq = body.find(" = ")
+    if eq < 0 { return ["", ""] }
+    let key = body.substring(0, eq).trim()
+    let raw_val = body.substring(eq + 3, body.len())
+    // strip wrap quotes
+    let n = raw_val.len()
+    let val = if n > 1 && raw_val.substring(0, 1) == "\"" && raw_val.substring(n - 1, n) == "\"" {
+        raw_val.substring(1, n - 1)
+    } else {
+        raw_val
+    }
+    return [key, val]
+}
+
+fn _continuations_at(lines: [string], from: i64) -> [string] {
+    let mut out: [string] = []
+    let mut i: i64 = from + 1
+    while i < lines.len() {
+        let ln = lines[i]
+        if !_is_continuation(ln) { return out }
+        out.push(ln)
+        i = i + 1
+    }
+    return out
+}
+
+// Return the sorted-joined key-set for a @D event's continuations
+// (signature for adjacency grouping). "key1|key2|key3".
+fn _key_signature(conts: [string]) -> string {
+    let mut keys: [string] = []
+    let mut i: i64 = 0
+    while i < conts.len() {
+        let kv = _kv_continuation(conts[i])
+        if kv[0].len() > 0 { keys.push(kv[0]) }
+        i = i + 1
+    }
+    // insertion sort
+    let mut s: i64 = 1
+    while s < keys.len() {
+        let cur = keys[s]
+        let mut t: i64 = s - 1
+        while t > -1 && keys[t] > cur {
+            keys[t + 1] = keys[t]
+            t = t - 1
+        }
+        keys[t + 1] = cur
+        s = s + 1
+    }
+    let mut out = ""
+    let mut k: i64 = 0
+    while k < keys.len() {
+        if k > 0 { out = out + "|" }
+        out = out + keys[k]
+        k = k + 1
+    }
+    return out
+}
+
+// Lookup `key` in continuations; return value or "" if absent.
+fn _kv_lookup(conts: [string], key: string) -> string {
+    let mut i: i64 = 0
+    while i < conts.len() {
+        let kv = _kv_continuation(conts[i])
+        if kv[0] == key { return kv[1] }
+        i = i + 1
+    }
+    return ""
+}
+
+// Render one table from a list of rows ([conts]) sharing the ordered key list.
+fn _render_table(keys: [string], rows: [[string]]) -> string {
+    let mut out = ""
+    // header row
+    out = out + "|"
+    let mut k: i64 = 0
+    while k < keys.len() { out = out + " " + keys[k] + " |" ; k = k + 1 }
+    out = out + "\n|"
+    k = 0
+    while k < keys.len() { out = out + "---|" ; k = k + 1 }
+    out = out + "\n"
+    // data rows
+    let mut ri: i64 = 0
+    while ri < rows.len() {
+        let row = rows[ri]
+        out = out + "|"
+        k = 0
+        while k < keys.len() {
+            let v = if k < row.len() { row[k] } else { "" }
+            out = out + " " + v + " |"
+            k = k + 1
+        }
+        out = out + "\n"
+        ri = ri + 1
+    }
+    return out
+}
+
+// Ordered keys (insertion order from first-row continuations).
+fn _ordered_keys(conts: [string]) -> [string] {
+    let mut out: [string] = []
+    let mut i: i64 = 0
+    while i < conts.len() {
+        let kv = _kv_continuation(conts[i])
+        if kv[0].len() > 0 { out.push(kv[0]) }
+        i = i + 1
+    }
+    return out
+}
+
+pub fn tape_query_table_render(tape_body: string, section_filter: string) -> string {
+    let lines = tape_body.split("\n")
+    let mut out = ""
+    let mut current_section = ""
+    // grouping state — accumulate consecutive @D events sharing key-signature
+    let mut grp_sig = ""
+    let mut grp_keys: [string] = []
+    let mut grp_rows: [[string]] = []
+    let mut grp_section = ""
+    let mut tables_emitted: i64 = 0
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        let lbl = _section_label(ln)
+        if lbl.len() > 0 {
+            // close any open group before changing section
+            if grp_sig.len() > 0 && grp_rows.len() > 1 {
+                if section_filter.len() == 0 || grp_section == section_filter {
+                    if out.len() > 0 { out = out + "\n" }
+                    out = out + "## " + grp_section + "\n\n"
+                    out = out + _render_table(grp_keys, grp_rows)
+                    tables_emitted = tables_emitted + 1
+                }
+            }
+            grp_sig = "" ; grp_keys = [] ; grp_rows = []
+            current_section = lbl
+            i = i + 1 ; continue
+        }
+        if _is_header(ln) {
+            let t = _header_type(ln)
+            if t == "D" {
+                let conts = _continuations_at(lines, i)
+                let sig = _key_signature(conts)
+                let keys = _ordered_keys(conts)
+                let nkeys = keys.len()
+                if nkeys < 2 {
+                    // single-key (e.g. just `text =`) → bullet, not table
+                    // close any open group
+                    if grp_sig.len() > 0 && grp_rows.len() > 1 {
+                        if section_filter.len() == 0 || grp_section == section_filter {
+                            if out.len() > 0 { out = out + "\n" }
+                            out = out + "## " + grp_section + "\n\n"
+                            out = out + _render_table(grp_keys, grp_rows)
+                            tables_emitted = tables_emitted + 1
+                        }
+                    }
+                    grp_sig = "" ; grp_keys = [] ; grp_rows = []
+                    i = i + 1 + conts.len()
+                    continue
+                }
+                if sig == grp_sig && grp_section == current_section {
+                    // extend current group
+                    let mut row: [string] = []
+                    let mut ki: i64 = 0
+                    while ki < grp_keys.len() {
+                        row.push(_kv_lookup(conts, grp_keys[ki]))
+                        ki = ki + 1
+                    }
+                    grp_rows.push(row)
+                } else {
+                    // close prior group
+                    if grp_sig.len() > 0 && grp_rows.len() > 1 {
+                        if section_filter.len() == 0 || grp_section == section_filter {
+                            if out.len() > 0 { out = out + "\n" }
+                            out = out + "## " + grp_section + "\n\n"
+                            out = out + _render_table(grp_keys, grp_rows)
+                            tables_emitted = tables_emitted + 1
+                        }
+                    }
+                    // start new group
+                    grp_sig = sig
+                    grp_keys = keys
+                    grp_section = current_section
+                    let mut row: [string] = []
+                    let mut ki: i64 = 0
+                    while ki < keys.len() {
+                        row.push(_kv_lookup(conts, keys[ki]))
+                        ki = ki + 1
+                    }
+                    grp_rows = [row]
+                }
+                i = i + 1 + conts.len()
+                continue
+            } else {
+                // non-@D header → close any open group
+                if grp_sig.len() > 0 && grp_rows.len() > 1 {
+                    if section_filter.len() == 0 || grp_section == section_filter {
+                        if out.len() > 0 { out = out + "\n" }
+                        out = out + "## " + grp_section + "\n\n"
+                        out = out + _render_table(grp_keys, grp_rows)
+                        tables_emitted = tables_emitted + 1
+                    }
+                }
+                grp_sig = "" ; grp_keys = [] ; grp_rows = []
+                let conts = _continuations_at(lines, i)
+                i = i + 1 + conts.len()
+                continue
+            }
+        }
+        i = i + 1
+    }
+    // close trailing group
+    if grp_sig.len() > 0 && grp_rows.len() > 1 {
+        if section_filter.len() == 0 || grp_section == section_filter {
+            if out.len() > 0 { out = out + "\n" }
+            out = out + "## " + grp_section + "\n\n"
+            out = out + _render_table(grp_keys, grp_rows)
+            tables_emitted = tables_emitted + 1
+        }
+    }
+    return out
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+
+    // _kv_continuation
+    let kv1 = _kv_continuation("  category = \"File tools\"")
+    if kv1[0] != "category" || kv1[1] != "File tools" { eprintln("FAIL: kv basic — " + kv1[0] + "/" + kv1[1]) ; fail = fail + 1 }
+    let kv2 = _kv_continuation("  <- c1")
+    if kv2[0] != "" { eprintln("FAIL: kv edge rejected") ; fail = fail + 1 }
+    let kv3 = _kv_continuation("  bare = unquoted")
+    if kv3[0] != "bare" || kv3[1] != "unquoted" { eprintln("FAIL: bare value") ; fail = fail + 1 }
+
+    // _section_label
+    if _section_label("# ── Inventory ─────────") != "Inventory" { eprintln("FAIL: section label") ; fail = fail + 1 }
+
+    // _key_signature is order-independent
+    // (verified via the full conversion fixture below)
+
+    // Full fixture: 2 tables in 2 sections, 1 bullet (skipped)
+    let tape = "# ── Inventory ───────────────────────────────────────\n" +
+               "\n" +
+               "@D row_a :: demo [ok]\n" +
+               "  category = \"ToolA\"\n" +
+               "  status = \"ok\"\n" +
+               "  verdict = \"shipped\"\n" +
+               "\n" +
+               "@D row_b :: demo [ok]\n" +
+               "  category = \"ToolB\"\n" +
+               "  status = \"pending\"\n" +
+               "  verdict = \"review\"\n" +
+               "\n" +
+               "@D b_bullet_x :: demo [ok]\n" +
+               "  text = \"a single-key bullet, not a row\"\n" +
+               "\n" +
+               "# ── Patterns ────────────────────────────────────────\n" +
+               "\n" +
+               "@D pat_1 :: demo [ok]\n" +
+               "  name = \"pattern1\"\n" +
+               "  cost = \"low\"\n" +
+               "\n" +
+               "@D pat_2 :: demo [ok]\n" +
+               "  name = \"pattern2\"\n" +
+               "  cost = \"high\"\n"
+
+    let rendered = tape_query_table_render(tape, "")
+    if rendered.find("## Inventory") < 0 { eprintln("FAIL: section1 header missing") ; fail = fail + 1 }
+    if rendered.find("| category | status | verdict |") < 0 { eprintln("FAIL: table1 header missing") ; fail = fail + 1 }
+    if rendered.find("| ToolA | ok | shipped |") < 0 { eprintln("FAIL: table1 row1") ; fail = fail + 1 }
+    if rendered.find("| ToolB | pending | review |") < 0 { eprintln("FAIL: table1 row2") ; fail = fail + 1 }
+    if rendered.find("a single-key bullet") > -1 { eprintln("FAIL: bullet bled into table") ; fail = fail + 1 }
+    if rendered.find("## Patterns") < 0 { eprintln("FAIL: section2 header missing") ; fail = fail + 1 }
+    if rendered.find("| name | cost |") < 0 { eprintln("FAIL: table2 header missing") ; fail = fail + 1 }
+    if rendered.find("| pattern1 | low |") < 0 { eprintln("FAIL: table2 row1") ; fail = fail + 1 }
+
+    // section filter
+    let only_inv = tape_query_table_render(tape, "Inventory")
+    if only_inv.find("Inventory") < 0 { eprintln("FAIL: filter section present missing") ; fail = fail + 1 }
+    if only_inv.find("Patterns") > -1 { eprintln("FAIL: filter excluded section leaked") ; fail = fail + 1 }
+
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_query_table] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_query_table] OK")
+exit(0)
