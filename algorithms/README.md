@@ -1,6 +1,6 @@
 # Reference algorithms — `.tape` toolchain
 
-17 hexa-lang modules covering the operational surface of `.tape` v1.1 — guarded append, bootstrap, replay, typed filter, health audit, streaming compaction, time-axis indexing, dedup detection, KV-cache invariance probe, JSONL adapter, the two promotion-adapter stubs (n6 / hxc), the four v1.1 placement-bridge modules (identity projection, domain `## Log` renderer, meta-domain verifier, domain status matrix), and the v1.1 P1 whole-tape markdown adapter.
+18 hexa-lang modules covering the operational surface of `.tape` v1.1 — guarded append, bootstrap, replay, typed filter, health audit, streaming compaction, time-axis indexing, dedup detection, KV-cache invariance probe, JSONL adapter, the two promotion-adapter stubs (n6 / hxc), the four v1.1 placement-bridge modules (identity projection, domain `## Log` renderer, meta-domain verifier, domain status matrix), and the two v1.1 markdown adapters (P1 tape_to_md whole-tape projection + P2 md_to_tape one-shot migration).
 
 ## Provenance
 
@@ -27,6 +27,7 @@ Written in [hexa-lang](https://github.com/dancinlab/hexa-fusion) — require the
 | `tape_meta_verify.hexa` (v1.1) | Walk a meta-domain `<D1+D2+D3>.md` head section for typed `@D` Cn/Mm condition lines, cross-reference each against the sibling `.tape` for evidence, emit a held/violated matrix. |
 | `tape_domain_status.hexa` (v1.1) | Scan a directory for `<UPPERCASE>(+<UPPERCASE>)*.md` files (governance #4 pattern), summarise each via its sibling `.tape`, print a one-screen domain-status matrix. Companion to `wilson domain list`. |
 | `tape_to_md.hexa` (v1.1 P1) | Project a whole `.tape` to markdown — `#` preamble → quote, `# ── X ────` → H2, `@D` → bullets, `@A` → `## Log` H3 entries with date + body. Generalisation of `tape_to_md_log` (which only rewrites the AUTO-RENDER fence). Enables `.tape`-as-SSOT with `.md` as auto-rendered view (TAPE.md adoption path P1). |
+| `md_to_tape.hexa` (v1.1 P2) | One-shot `.md` → `.tape` migration. Pragmatic — handles the 5 markdown constructs domain.md files actually use: H1 title, `>` quote, `## section`, `\| ... \|` table (rows → `@D` with col-named continuations), `- bullet` (→ `@D` + `text =`), ` ``` ` code fence (→ `code =` continuation), and `### YYYY-MM-DD — head` Log entries (→ `@A` + `=>` + `body =` continuation). Companion of `tape_to_md`. |
 
 ## Usage shape
 
@@ -44,6 +45,7 @@ hexa algorithms/tape_to_md_log.hexa HARNESS.md HARNESS.tape 20
 hexa algorithms/tape_meta_verify.hexa HARNESS+TOOL+PROVIDER.md HARNESS+TOOL+PROVIDER.tape
 hexa algorithms/tape_domain_status.hexa ~/core/wilson
 hexa algorithms/tape_to_md.hexa <tape.in> <md.out>
+hexa algorithms/md_to_tape.hexa <md.in> <tape.out> <domain>
 ```
 
 Every module ships a `--selftest` flag returning exit 0 on pass.

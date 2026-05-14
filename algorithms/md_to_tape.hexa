@@ -1,0 +1,388 @@
+// ══════════════════════════════════════════════════════════════
+// md_to_tape.hexa — `.md` → `.tape` one-shot migration (P2)
+//
+// @module(slug="md_to_tape", desc="Convert a domain-style `.md` (governance #4 head + `## Log`) into `.tape` grammar per TAPE.md 7-content-type matrix. Pragmatic — handles the constructs domain.md files actually use: H1 title, `>` preamble quote, `## section`, `| ... |` markdown table, `- bullet`, ` ``` ` code fence, `### YYYY-MM-DD — header` Log entries. NOT a full CommonMark parser. Companion of `tape_to_md` (the reverse direction).")
+// @usage(hexa algorithms/md_to_tape.hexa --selftest)
+// @usage(hexa algorithms/md_to_tape.hexa <md.in> <tape.out> [<domain>])
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args)
+// ══════════════════════════════════════════════════════════════
+
+// ── line classifiers ──────────────────────────────────────────
+
+fn _is_h1(line: string) -> bool {
+    return line.len() > 2 && line.substring(0, 2) == "# " && line.substring(0, 3) != "## "
+}
+
+fn _is_h2(line: string) -> bool {
+    return line.len() > 3 && line.substring(0, 3) == "## " && line.substring(0, 4) != "### "
+}
+
+fn _is_h3(line: string) -> bool {
+    return line.len() > 4 && line.substring(0, 4) == "### "
+}
+
+fn _is_quote(line: string) -> bool {
+    return line.len() > 1 && line.substring(0, 2) == "> "
+}
+
+fn _is_bullet(line: string) -> bool {
+    return line.len() > 1 && line.substring(0, 2) == "- "
+}
+
+fn _is_table_row(line: string) -> bool {
+    return line.len() > 0 && line.substring(0, 1) == "|"
+}
+
+fn _is_table_sep(line: string) -> bool {
+    if !_is_table_row(line) { return false }
+    let cells = line.split("|")
+    let mut i: i64 = 0
+    let mut nonempty = 0
+    while i < cells.len() {
+        let c = cells[i].trim()
+        if c.len() > 0 {
+            nonempty = nonempty + 1
+            // each non-empty must be only `-` `:` chars
+            let mut j: i64 = 0
+            while j < c.len() {
+                let ch = c.substring(j, j + 1)
+                if ch != "-" && ch != ":" { return false }
+                j = j + 1
+            }
+        }
+        i = i + 1
+    }
+    return nonempty > 0
+}
+
+fn _is_code_fence(line: string) -> bool {
+    return line.len() > 2 && line.substring(0, 3) == "```"
+}
+
+// ── helpers ───────────────────────────────────────────────────
+
+fn _escape_json_str(s: string) -> string {
+    let mut out = ""
+    let mut i: i64 = 0
+    while i < s.len() {
+        let ch = s.substring(i, i + 1)
+        if ch == "\""       { out = out + "\\\"" }
+        else if ch == "\\"  { out = out + "\\\\" }
+        else if ch == "\n"  { out = out + "\\n" }
+        else if ch == "\r"  { out = out + "\\r" }
+        else if ch == "\t"  { out = out + "\\t" }
+        else                { out = out + ch }
+        i = i + 1
+    }
+    return out
+}
+
+fn _slugify(s: string) -> string {
+    let trimmed = s.trim()
+    if trimmed.len() == 0 { return "x" }
+    let mut out = ""
+    let mut i: i64 = 0
+    let mut prev_dash = false
+    while i < trimmed.len() && out.len() < 32 {
+        let ch = trimmed.substring(i, i + 1)
+        let is_alpha = (ch > "@" && ch < "[") || (ch > "`" && ch < "{")    // A-Z or a-z
+        let is_digit = ch > "/" && ch < ":"
+        if is_alpha || is_digit {
+            // lowercase A-Z
+            if ch > "@" && ch < "[" {
+                let code = ch.substring(0, 1)
+                // simple lowercase: we can't easily lowercase without ord/chr; preserve as-is
+                out = out + code
+            } else {
+                out = out + ch
+            }
+            prev_dash = false
+        } else {
+            if !prev_dash && out.len() > 0 { out = out + "_" ; prev_dash = true }
+        }
+        i = i + 1
+    }
+    // trim trailing _
+    while out.len() > 0 && out.substring(out.len() - 1, out.len()) == "_" {
+        out = out.substring(0, out.len() - 1)
+    }
+    if out.len() == 0 { return "x" }
+    return out
+}
+
+// Parse `### YYYY-MM-DD [HH:MM] — <headline>` or `### YYYY-MM-DD · <headline>`.
+// Returns [date, headline] or ["", ""] if not matched.
+fn _parse_log_h3(line: string) -> [string] {
+    if !_is_h3(line) { return ["", ""] }
+    let rest = line.substring(4, line.len()).trim()
+    // expect 10 chars YYYY-MM-DD then space or — or ·
+    if rest.len() < 11 { return ["", ""] }
+    let date = rest.substring(0, 10)
+    // very loose check: contains 2 dashes at positions 4 and 7
+    if date.substring(4, 5) != "-" || date.substring(7, 8) != "-" { return ["", ""] }
+    let after = rest.substring(10, rest.len()).trim()
+    // strip leading separator chars
+    let mut head = after
+    let leads = ["— ", "· ", "- ", "· ", ": "]
+    let mut si: i64 = 0
+    while si < leads.len() {
+        let lead = leads[si]
+        if head.len() > lead.len() && head.substring(0, lead.len()) == lead {
+            head = head.substring(lead.len(), head.len())
+        }
+        si = si + 1
+    }
+    return [date, head]
+}
+
+// ── conversion ────────────────────────────────────────────────
+
+pub fn md_to_tape_convert(md_body: string, domain: string) -> string {
+    let lines = md_body.split("\n")
+    let mut out = ""
+    // shebang + banner header
+    out = out + "#!/usr/bin/env tape\n"
+    out = out + "# ══════════════════════════════════════════════════════════════\n"
+    let mut title_line_idx: i64 = -1
+    let mut i: i64 = 0
+    // find H1 for title comment
+    while i < lines.len() {
+        if _is_h1(lines[i]) { title_line_idx = i ; break }
+        i = i + 1
+    }
+    if title_line_idx > -1 {
+        let title = lines[title_line_idx].substring(2, lines[title_line_idx].len()).trim()
+        out = out + "# " + title + "\n"
+    } else {
+        out = out + "# " + domain + "\n"
+    }
+    out = out + "# ══════════════════════════════════════════════════════════════\n\n"
+
+    // walk lines, emitting:
+    //   `>` preamble → `# <text>` comment lines (paragraph block before first `##`)
+    //   `## X` → `# ── X ─────`
+    //   `### YYYY-MM-DD — head` (within ## Log) → @A event
+    //   `- bullet` → @D event with text= continuation
+    //   `| ... |` table row → @D event with col-named continuations
+    //   ` ``` ` code → code= continuation w/ \n escaped
+
+    let mut current_section = ""
+    let mut in_log = false
+    let mut in_code = false
+    let mut code_buf = ""
+    let mut code_owner_id = ""              // last @A id (code block belongs to it)
+    let mut table_header: [string] = []     // current table's column names
+    let mut row_idx_in_section: i64 = 0
+    let mut log_entry_open = false
+    let mut log_body_buf = ""
+    let mut log_entry_id = ""
+    let mut log_entry_date = ""
+    i = 0
+    if title_line_idx > -1 { i = title_line_idx + 1 }
+    while i < lines.len() {
+        let ln = lines[i]
+        // Code fence
+        if _is_code_fence(ln) {
+            if in_code {
+                // close fence: emit code= continuation onto open log_entry or last anchor
+                let escaped = _escape_json_str(code_buf)
+                if log_entry_open {
+                    out = out + "  code = \"" + escaped + "\"\n"
+                }
+                in_code = false ; code_buf = ""
+            } else {
+                in_code = true ; code_buf = ""
+            }
+            i = i + 1 ; continue
+        }
+        if in_code {
+            if code_buf.len() > 0 { code_buf = code_buf + "\n" }
+            code_buf = code_buf + ln
+            i = i + 1 ; continue
+        }
+        // H1: skip (used as title above)
+        if _is_h1(ln) { i = i + 1 ; continue }
+        // H2: section divider
+        if _is_h2(ln) {
+            // flush any open log entry
+            if log_entry_open {
+                if log_body_buf.len() > 0 {
+                    out = out + "  body = \"" + _escape_json_str(log_body_buf) + "\"\n"
+                }
+                log_entry_open = false ; log_body_buf = ""
+            }
+            let label = ln.substring(3, ln.len()).trim()
+            current_section = label
+            if label == "Log" { in_log = true } else { in_log = false }
+            out = out + "\n# ── " + label + " ─────────────────────────────────────────\n\n"
+            table_header = []
+            row_idx_in_section = 0
+            i = i + 1 ; continue
+        }
+        // H3 inside ## Log: log entry header
+        if in_log && _is_h3(ln) {
+            // flush previous log entry
+            if log_entry_open && log_body_buf.len() > 0 {
+                out = out + "  body = \"" + _escape_json_str(log_body_buf) + "\"\n"
+            }
+            log_body_buf = ""
+            let p = _parse_log_h3(ln)
+            if p[0].len() > 0 {
+                log_entry_date = p[0]
+                let head = p[1]
+                log_entry_id = _slugify(head)
+                if log_entry_id.len() == 0 { log_entry_id = "entry_" + to_string(row_idx_in_section) }
+                row_idx_in_section = row_idx_in_section + 1
+                out = out + "\n@A " + log_entry_id + " :: " + domain + " [d=" + log_entry_date + " ok]\n"
+                out = out + "  => \"" + _escape_json_str(head) + "\"\n"
+                log_entry_open = true
+            }
+            i = i + 1 ; continue
+        }
+        // Inside open log entry, accumulate body lines (paragraphs)
+        if log_entry_open && in_log && !_is_h2(ln) {
+            // Skip blank lines at start, but preserve blank lines between paragraphs in body
+            if ln.len() == 0 && log_body_buf.len() == 0 { i = i + 1 ; continue }
+            if log_body_buf.len() > 0 { log_body_buf = log_body_buf + "\n" }
+            log_body_buf = log_body_buf + ln
+            i = i + 1 ; continue
+        }
+        // Quote → preamble comment
+        if _is_quote(ln) {
+            out = out + "# " + ln.substring(2, ln.len()) + "\n"
+            i = i + 1 ; continue
+        }
+        // Table row
+        if _is_table_row(ln) {
+            // sep row?
+            if _is_table_sep(ln) { i = i + 1 ; continue }
+            let cells = ln.split("|")
+            let mut row: [string] = []
+            let mut ci: i64 = 0
+            while ci < cells.len() {
+                let c = cells[ci].trim()
+                if c.len() > 0 || (ci > 0 && ci < cells.len() - 1) { row.push(c) }
+                ci = ci + 1
+            }
+            // first table row = header (capture column names)
+            if table_header.len() == 0 {
+                table_header = row
+                i = i + 1 ; continue
+            }
+            // data row → @D event with col-named continuations
+            let id_slug = _slugify(row[0])
+            let event_id = "row_" + id_slug + "_" + to_string(row_idx_in_section)
+            row_idx_in_section = row_idx_in_section + 1
+            out = out + "\n@D " + event_id + " :: " + domain + " [ok]\n"
+            let mut ki: i64 = 0
+            while ki < row.len() && ki < table_header.len() {
+                let key = _slugify(table_header[ki])
+                let val = row[ki]
+                out = out + "  " + key + " = \"" + _escape_json_str(val) + "\"\n"
+                ki = ki + 1
+            }
+            i = i + 1 ; continue
+        } else {
+            // out of table — reset header
+            if table_header.len() > 0 && ln.trim().len() == 0 {
+                // blank line ends table; clear header on next non-table content
+            } else if table_header.len() > 0 && !_is_table_row(ln) {
+                table_header = []
+            }
+        }
+        // Bullet → @D event with text= continuation
+        if _is_bullet(ln) {
+            let text = ln.substring(2, ln.len()).trim()
+            let id_slug = _slugify(text)
+            let event_id = "b_" + id_slug + "_" + to_string(row_idx_in_section)
+            row_idx_in_section = row_idx_in_section + 1
+            out = out + "\n@D " + event_id + " :: " + domain + " [ok]\n"
+            out = out + "  text = \"" + _escape_json_str(text) + "\"\n"
+            i = i + 1 ; continue
+        }
+        // Paragraph: skip if empty, else preserve as preamble comment
+        // (no current section → preamble accumulation; with section → drop)
+        if ln.trim().len() > 0 && current_section.len() == 0 {
+            out = out + "# " + ln + "\n"
+        }
+        i = i + 1
+    }
+    // flush trailing log entry body
+    if log_entry_open && log_body_buf.len() > 0 {
+        out = out + "  body = \"" + _escape_json_str(log_body_buf) + "\"\n"
+    }
+    return out
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+
+    // _is_h1 / h2 / h3
+    if !_is_h1("# Title") { eprintln("FAIL: h1") ; fail = fail + 1 }
+    if !_is_h2("## Section") { eprintln("FAIL: h2") ; fail = fail + 1 }
+    if !_is_h3("### Entry") { eprintln("FAIL: h3") ; fail = fail + 1 }
+    if _is_h1("## Section") { eprintln("FAIL: h1 mis-detect") ; fail = fail + 1 }
+
+    // table detection
+    if !_is_table_row("| a | b |") { eprintln("FAIL: table row") ; fail = fail + 1 }
+    if !_is_table_sep("|---|---|") { eprintln("FAIL: table sep") ; fail = fail + 1 }
+
+    // log h3 parse
+    let p = _parse_log_h3("### 2026-05-13 14:30 — Sprint 1 lands")
+    if p[0] != "2026-05-13" { eprintln("FAIL: log date") ; fail = fail + 1 }
+    if p[1].find("Sprint 1") < 0 { eprintln("FAIL: log headline") ; fail = fail + 1 }
+
+    // escape
+    if _escape_json_str("a\"b") != "a\\\"b" { eprintln("FAIL: escape quote") ; fail = fail + 1 }
+    if _escape_json_str("a\nb").find("\\n") < 0 { eprintln("FAIL: escape newline") ; fail = fail + 1 }
+
+    // Full conversion fixture
+    let md = "# DEMO\n" +
+             "\n" +
+             "> One-line preamble for the demo domain.\n" +
+             "\n" +
+             "## Conditions\n" +
+             "\n" +
+             "- First condition body text.\n" +
+             "- Second condition body text.\n" +
+             "\n" +
+             "## Inventory\n" +
+             "\n" +
+             "| Category | Status | Verdict |\n" +
+             "|---|---|---|\n" +
+             "| ToolA | ok | shipped |\n" +
+             "| ToolB | pending | review |\n" +
+             "\n" +
+             "## Log\n" +
+             "\n" +
+             "### 2026-05-13 14:00 — First milestone\n" +
+             "\n" +
+             "Multi-paragraph body of the first milestone.\n" +
+             "Second line of the body.\n" +
+             "\n" +
+             "### 2026-05-14 09:00 — Second milestone\n" +
+             "\n" +
+             "Single-paragraph body.\n"
+
+    let tape = md_to_tape_convert(md, "demo")
+    if tape.find("# DEMO") < 0 { eprintln("FAIL: title carry") ; fail = fail + 1 }
+    if tape.find("# One-line preamble") < 0 { eprintln("FAIL: preamble") ; fail = fail + 1 }
+    if tape.find("# ── Conditions ─") < 0 { eprintln("FAIL: H2 divider") ; fail = fail + 1 }
+    if tape.find("@D b_first_condition_body_text") < 0 { eprintln("FAIL: bullet → @D") ; fail = fail + 1 }
+    if tape.find("@D row_toola") < 0 { eprintln("FAIL: table row → @D") ; fail = fail + 1 }
+    if tape.find("@A first_milestone :: demo [d=2026-05-13 ok]") < 0 { eprintln("FAIL: log H3 → @A") ; fail = fail + 1 }
+    if tape.find("=> \"First milestone\"") < 0 { eprintln("FAIL: log headline → =>") ; fail = fail + 1 }
+    if tape.find("body = \"Multi-paragraph body") < 0 { eprintln("FAIL: body capture") ; fail = fail + 1 }
+    if tape.find("\\nSecond line") < 0 { eprintln("FAIL: body \\n escape") ; fail = fail + 1 }
+
+    // idempotency
+    let tape2 = md_to_tape_convert(md, "demo")
+    if tape != tape2 { eprintln("FAIL: non-idempotent") ; fail = fail + 1 }
+
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[md_to_tape] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[md_to_tape] OK")
+exit(0)
