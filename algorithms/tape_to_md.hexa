@@ -28,18 +28,23 @@ fn _is_continuation(line: string) -> bool {
 }
 
 // `# ── label ──────` section divider → returns "label", else "".
+// NOTE: `─` is U+2500 (UTF-8: E2 94 80 — 3 bytes). The prefix `# ── ` is
+// 9 bytes; never assume fixed char-count slicing for box-drawing.
 fn _section_label(line: string) -> string {
-    if line.len() < 5 { return "" }
-    if line.substring(0, 4) != "# ── " { return "" }
-    // strip trailing box-drawing
+    let pfx = "# ── "
+    let pn = pfx.len()
+    if line.len() < pn { return "" }
+    if line.substring(0, pn) != pfx { return "" }
+    // strip trailing box-drawing + spaces
     let mut end: i64 = line.len()
-    let mut prev = end
-    while end > 4 {
+    while end > pn {
         let ch = line.substring(end - 1, end)
-        if ch == " " || ch == "─" { end = end - 1 ; continue }
+        if ch == " " { end = end - 1 ; continue }
+        // last byte of `─` (0x80) — strip it and the 2 preceding UTF-8 bytes too
+        if end > 2 && line.substring(end - 3, end) == "─" { end = end - 3 ; continue }
         break
     }
-    return line.substring(4, end).trim()
+    return line.substring(pn, end).trim()
 }
 
 fn _is_decorative_comment(line: string) -> bool {

@@ -19,15 +19,18 @@ fn _is_continuation(line: string) -> bool {
 }
 
 fn _section_label(line: string) -> string {
-    if line.len() < 5 { return "" }
-    if line.substring(0, 4) != "# ── " { return "" }
+    let pfx = "# ── "
+    let pn = pfx.len()
+    if line.len() < pn { return "" }
+    if line.substring(0, pn) != pfx { return "" }
     let mut end: i64 = line.len()
-    while end > 4 {
+    while end > pn {
         let ch = line.substring(end - 1, end)
-        if ch == " " || ch == "─" { end = end - 1 ; continue }
+        if ch == " " { end = end - 1 ; continue }
+        if end > 2 && line.substring(end - 3, end) == "─" { end = end - 3 ; continue }
         break
     }
-    return line.substring(4, end).trim()
+    return line.substring(pn, end).trim()
 }
 
 fn _header_type(line: string) -> string {
