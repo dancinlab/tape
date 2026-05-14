@@ -56,6 +56,7 @@
 
 @I id001 := "tape" :: identity-claim [d=2026-05-14 active]
   kind = "agent-execution trace grammar — spec home (SSOT)"
+  brief = "Agent-Execution Trace grammar spec · typed events · provenance edges · v1.2"
   tagline = "typed events · provenance edges · delivery grade · append-only"
   scope <<~EOF
     The dancinlab/tape repo is the canonical home of the `.tape` v1.2 grammar.
