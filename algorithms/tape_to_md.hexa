@@ -1,0 +1,348 @@
+// ══════════════════════════════════════════════════════════════
+// tape_to_md.hexa — `.tape` → `.md` projection (P1 adapter)
+//
+// @module(slug="tape_to_md", desc="Project a `.tape` file into a Markdown rendering — companion of `tape_to_md_log` (which only updated the `## Log` AUTO-RENDER fence). This module renders the *whole* tape: `#` header comment block → preamble + quote, `# ── X ────` section divider → H2, `@I` / `@D` / `@A` / others → typed renderings. Enables `.tape`-as-SSOT pattern: humans edit `.tape`, GitHub-friendly `.md` is auto-rendered.")
+// @usage(hexa algorithms/tape_to_md.hexa --selftest)
+// @usage(hexa algorithms/tape_to_md.hexa <tape.in> <md.out>)
+// @exit_codes(0=ok, 1=selftest-fail, 2=io-error, 3=bad-args)
+// ══════════════════════════════════════════════════════════════
+
+// ── line classifiers ───────────────────────────────────────────
+
+fn _is_header(line: string) -> bool {
+    if line.len() < 2 { return false }
+    if line.substring(0, 1) != "@" { return false }
+    let known = "SUATRHDKPI?"
+    let t = line.substring(1, 2)
+    let mut i: i64 = 0
+    while i < known.len() {
+        if known.substring(i, i + 1) == t { return true }
+        i = i + 1
+    }
+    return false
+}
+
+fn _is_continuation(line: string) -> bool {
+    if line.len() < 2 { return false }
+    return line.substring(0, 2) == "  "
+}
+
+// `# ── label ──────` section divider → returns "label", else "".
+fn _section_label(line: string) -> string {
+    if line.len() < 5 { return "" }
+    if line.substring(0, 4) != "# ── " { return "" }
+    // strip trailing box-drawing
+    let mut end: i64 = line.len()
+    let mut prev = end
+    while end > 4 {
+        let ch = line.substring(end - 1, end)
+        if ch == " " || ch == "─" { end = end - 1 ; continue }
+        break
+    }
+    return line.substring(4, end).trim()
+}
+
+fn _is_decorative_comment(line: string) -> bool {
+    if line.len() < 2 { return false }
+    if line.substring(0, 1) != "#" { return false }
+    // ══...═══ banner line
+    if line.find("══") > -1 { return true }
+    // shebang or section divider
+    if line.find("!/usr/bin/env") > -1 { return true }
+    if _section_label(line).len() > 0 { return true }
+    return false
+}
+
+// `# any text` → preamble paragraph. Returns the text without the leading `# `.
+fn _preamble_text(line: string) -> string {
+    if line.len() < 2 { return "" }
+    if line.substring(0, 1) != "#" { return "" }
+    if _is_decorative_comment(line) { return "" }
+    if line.len() == 1 { return "" }
+    if line.substring(0, 2) == "# " { return line.substring(2, line.len()) }
+    return line.substring(1, line.len())
+}
+
+// ── header parsing ─────────────────────────────────────────────
+
+fn _header_type(line: string) -> string {
+    if line.len() < 2 { return "" }
+    return line.substring(1, 2)
+}
+
+fn _header_id(line: string) -> string {
+    if line.len() < 4 { return "" }
+    let rest = line.substring(3, line.len())
+    let sp = rest.find(" ")
+    if sp < 0 { return rest }
+    return rest.substring(0, sp)
+}
+
+fn _header_domain(line: string) -> string {
+    let dd = line.find(" :: ")
+    if dd < 0 { return "" }
+    let rest = line.substring(dd + 4, line.len())
+    let sp = rest.find(" ")
+    if sp < 0 { return rest }
+    return rest.substring(0, sp)
+}
+
+fn _header_grade(line: string) -> string {
+    let lb = line.find("[")
+    let rb = line.find("]")
+    if lb < 0 || rb < lb { return "" }
+    return line.substring(lb + 1, rb)
+}
+
+// Return date `d=<YYYY-MM-DD>` from grade if present, else "".
+fn _grade_date(line: string) -> string {
+    let grade = _header_grade(line)
+    if grade.len() == 0 { return "" }
+    let toks = grade.split(" ")
+    let mut i: i64 = 0
+    while i < toks.len() {
+        let tk = toks[i]
+        if tk.len() > 2 && tk.substring(0, 2) == "d=" { return tk.substring(2, tk.len()) }
+        i = i + 1
+    }
+    return ""
+}
+
+// Strip surrounding `"..."` quotes if present.
+fn _unquote(s: string) -> string {
+    let n = s.len()
+    if n > 1 && s.substring(0, 1) == "\"" && s.substring(n - 1, n) == "\"" {
+        return s.substring(1, n - 1)
+    }
+    return s
+}
+
+// Unescape `\n` `\t` `\"` `\\` JSON-style.
+fn _unescape(s: string) -> string {
+    let mut out = ""
+    let mut i: i64 = 0
+    while i < s.len() {
+        let ch = s.substring(i, i + 1)
+        if ch == "\\" && i + 1 < s.len() {
+            let nx = s.substring(i + 1, i + 2)
+            if nx == "n"  { out = out + "\n"  ; i = i + 2 ; continue }
+            if nx == "t"  { out = out + "\t"  ; i = i + 2 ; continue }
+            if nx == "\\" { out = out + "\\"  ; i = i + 2 ; continue }
+            if nx == "\"" { out = out + "\""  ; i = i + 2 ; continue }
+            out = out + nx ; i = i + 2 ; continue
+        }
+        out = out + ch
+        i = i + 1
+    }
+    return out
+}
+
+// ── continuation harvesting ────────────────────────────────────
+
+fn _continuations_at(lines: [string], from: i64) -> [string] {
+    let mut out: [string] = []
+    let mut i: i64 = from + 1
+    while i < lines.len() {
+        let ln = lines[i]
+        if !_is_continuation(ln) { return out }
+        out.push(ln.substring(2, ln.len()))
+        i = i + 1
+    }
+    return out
+}
+
+// Find first continuation matching prefix; return payload after `<prefix> `.
+fn _find_cont(conts: [string], prefix: string) -> string {
+    let mut i: i64 = 0
+    while i < conts.len() {
+        let body = conts[i]
+        if body.len() > prefix.len() && body.substring(0, prefix.len()) == prefix {
+            let rest = body.substring(prefix.len(), body.len())
+            if rest.len() > 0 && rest.substring(0, 1) == " " {
+                return rest.substring(1, rest.len())
+            }
+            return rest
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+// Find named continuation `key = "value"` (or `key = bare-value`); return value (unquoted).
+fn _find_named(conts: [string], key: string) -> string {
+    let needle = key + " = "
+    let mut i: i64 = 0
+    while i < conts.len() {
+        let body = conts[i]
+        if body.len() > needle.len() && body.substring(0, needle.len()) == needle {
+            return _unquote(body.substring(needle.len(), body.len()))
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+// ── renderers per type ─────────────────────────────────────────
+
+fn _render_event(t: string, id: string, line: string, conts: [string]) -> string {
+    // headline `=> "<prose>"` (the produces-edge, common headline)
+    let produces = _find_cont(conts, "=>")
+    let date     = _grade_date(line)
+    let grade    = _header_grade(line)
+    let text     = _find_named(conts, "text")
+    let body     = _find_named(conts, "body")
+    let mut out = ""
+    if t == "A" {
+        // `## Log`-style entry: H3 header with date + prose summary
+        let mut head = "### "
+        if date.len() > 0 { head = head + date + " · " } else { head = head + id + " · " }
+        head = head + _unquote(produces)
+        out = out + head + "\n"
+        if body.len() > 0 { out = out + _unescape(body) + "\n" }
+        else if text.len() > 0 { out = out + text + "\n" }
+        return out
+    }
+    if t == "D" {
+        // condition bullet: `- **<id>** — <text>` (or produces)
+        let summary = if text.len() > 0 { text } else { _unquote(produces) }
+        if summary.len() > 0 { out = "- **" + id + "** — " + summary + "\n" }
+        else { out = "- **" + id + "**\n" }
+        return out
+    }
+    if t == "I" {
+        // identity claim: 2-col mini table row
+        let sub_summary = if text.len() > 0 { text } else { _unquote(produces) }
+        out = "- `@I " + id + "` — " + sub_summary + "\n"
+        return out
+    }
+    // generic event line
+    let summary = if text.len() > 0 { text } else { _unquote(produces) }
+    if summary.len() > 0 { out = "- `@" + t + " " + id + "` — " + summary + "\n" }
+    else { out = "- `@" + t + " " + id + "`\n" }
+    return out
+}
+
+pub fn tape_to_md_render(tape_body: string, title: string) -> string {
+    let lines = tape_body.split("\n")
+    let mut out = ""
+    let mut emit_title = title.len() > 0
+    let mut in_preamble = true
+    let mut log_started = false
+    let mut current_section = ""
+    let mut i: i64 = 0
+    while i < lines.len() {
+        let ln = lines[i]
+        if ln.len() == 0 { i = i + 1 ; continue }
+        if _is_decorative_comment(ln) {
+            let lbl = _section_label(ln)
+            if lbl.len() > 0 {
+                // section divider → H2
+                if emit_title {
+                    out = out + "# " + title + "\n\n"
+                    emit_title = false
+                }
+                in_preamble = false
+                out = out + "\n## " + lbl + "\n\n"
+                current_section = lbl
+            }
+            i = i + 1 ; continue
+        }
+        if ln.substring(0, 1) == "#" {
+            // preamble paragraph or quote
+            let txt = _preamble_text(ln)
+            if txt.len() > 0 && in_preamble {
+                if emit_title {
+                    out = out + "# " + title + "\n\n"
+                    emit_title = false
+                }
+                out = out + "> " + txt + "\n"
+            }
+            i = i + 1 ; continue
+        }
+        if _is_header(ln) {
+            if emit_title {
+                out = out + "# " + title + "\n\n"
+                emit_title = false
+            }
+            in_preamble = false
+            let t = _header_type(ln)
+            let id = _header_id(ln)
+            let conts = _continuations_at(lines, i)
+            // For @A events under no section, lazily open ## Log
+            if t == "A" && !log_started {
+                out = out + "\n---\n\n## Log\n\n"
+                log_started = true
+            }
+            out = out + _render_event(t, id, ln, conts) + "\n"
+            i = i + 1 + conts.len()
+            continue
+        }
+        i = i + 1
+    }
+    return out
+}
+
+fn _selftest() -> i64 {
+    let mut fail: i64 = 0
+
+    // _section_label
+    if _section_label("# ── 한 문장 ─────────────────") != "한 문장" { eprintln("FAIL: section_label") ; fail = fail + 1 }
+    if _section_label("# ══════════════════════════════════════════════════════════════") != "" { eprintln("FAIL: banner mis-detect") ; fail = fail + 1 }
+    if _section_label("@D something :: x [ok]") != "" { eprintln("FAIL: non-comment") ; fail = fail + 1 }
+
+    // _grade_date
+    if _grade_date("@A x :: y [d=2026-05-14 ok]") != "2026-05-14" { eprintln("FAIL: grade_date") ; fail = fail + 1 }
+
+    // _unescape
+    let escaped = "para1\\npara2"
+    let plain = _unescape(escaped)
+    if plain.find("\n") < 0 { eprintln("FAIL: unescape \\n") ; fail = fail + 1 }
+
+    // Full render fixture
+    let tape = "#!/usr/bin/env tape\n" +
+               "# ══════════════════════════════════════════════════════════════\n" +
+               "# DEMO — pilot for tape_to_md\n" +
+               "#\n" +
+               "# A short description of the domain.\n" +
+               "# ══════════════════════════════════════════════════════════════\n" +
+               "\n" +
+               "# ── 한 문장 ─────────────────────────────────────────────────\n" +
+               "\n" +
+               "@D one_liner := \"demo.headline\" :: demo [d=2026-05-14 ok]\n" +
+               "  text = \"This is the one-line summary of the domain.\"\n" +
+               "\n" +
+               "# ── 조건 ─────────────────────────────────────────────────────\n" +
+               "\n" +
+               "@D c1 := \"demo.c1\" :: demo [d=2026-05-14 ok]\n" +
+               "  text = \"first condition\"\n" +
+               "\n" +
+               "@D c2 := \"demo.c2\" :: demo [d=2026-05-14 ok]\n" +
+               "  text = \"second condition\"\n" +
+               "\n" +
+               "@A milestone_a :: demo [d=2026-05-14 ok]\n" +
+               "  <- c1\n" +
+               "  => \"first milestone landed\"\n" +
+               "  body = \"Multi-line body.\\nSecond line of body.\\nThird.\"\n"
+
+    let rendered = tape_to_md_render(tape, "DEMO")
+    if rendered.find("# DEMO") < 0 { eprintln("FAIL: title missing") ; fail = fail + 1 }
+    if rendered.find("> A short description") < 0 { eprintln("FAIL: preamble quote missing") ; fail = fail + 1 }
+    if rendered.find("## 한 문장") < 0 { eprintln("FAIL: section H2 missing") ; fail = fail + 1 }
+    if rendered.find("- **one_liner**") < 0 { eprintln("FAIL: @D one_liner not rendered as bullet") ; fail = fail + 1 }
+    if rendered.find("- **c1** — first condition") < 0 { eprintln("FAIL: @D c1 with text= missing") ; fail = fail + 1 }
+    if rendered.find("## Log") < 0 { eprintln("FAIL: ## Log lazy-open missing") ; fail = fail + 1 }
+    if rendered.find("### 2026-05-14 · first milestone landed") < 0 { eprintln("FAIL: @A H3 with date missing") ; fail = fail + 1 }
+    if rendered.find("Multi-line body.") < 0 { eprintln("FAIL: body content missing") ; fail = fail + 1 }
+    if rendered.find("Second line of body.") < 0 { eprintln("FAIL: body \\n unescape missing") ; fail = fail + 1 }
+
+    // idempotency
+    let r2 = tape_to_md_render(tape, "DEMO")
+    if r2 != rendered { eprintln("FAIL: non-idempotent") ; fail = fail + 1 }
+
+    return fail
+}
+
+let _rc = _selftest()
+if _rc != 0 { eprintln("[tape_to_md] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+println("[tape_to_md] OK")
+exit(0)

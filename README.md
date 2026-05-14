@@ -92,7 +92,7 @@ The promotion sibling pattern decouples **what was done** (`.tape`, append-only,
 
 - v1.1 spec live (2026-05-13) — adds `@I` identity type + 5-placement matrix (per-session, identity singleton, recap index, per-domain, cross-project atlas)
 - 11 types · 7 edges · 6 delivery-state markers · open domain alphabet
-- 16 reference hexa-lang algorithms (`algorithms/`) — v1 catalog + `tape_render_identity` / `tape_to_md_log` / `tape_meta_verify` / `tape_domain_status`
+- 17 reference hexa-lang algorithms (`algorithms/`) — v1 catalog + `tape_render_identity` / `tape_to_md_log` / `tape_meta_verify` / `tape_domain_status` / `tape_to_md` (P1 whole-tape markdown adapter, TAPE.md adoption invert pattern)
 - TextMate grammar shipped (`syntaxes/tape.tmLanguage.json`)
 - Wilson integration: reference adapters mapped in [`spec/tape.md`](spec/tape.md#reference-adapters-wilson-plugin-surface-mapping) and [`spec/tape.md#placement-matrix-v11`](spec/tape.md#placement-matrix-v11); plugin landing TBD
 
