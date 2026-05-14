@@ -130,6 +130,63 @@ Full grammar → [`spec/tape.md`](spec/tape.md).
 
 All five share the same grammar, validator (`tape_absorb`), and algorithm catalog. See [`spec/tape.md#placement-matrix-v11`](spec/tape.md).
 
+## Install
+
+```sh
+# 1. Install hexa-lang (gives you `hexa` + `hx` package manager)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/dancinlab/hexa-lang/main/install.sh)"
+
+# 2. Install tape
+hx install tape
+```
+
+`hx install` picks up `bin/tape` and symlinks it into `~/.hx/bin/`. The `tape` CLI is a thin dispatcher — each subcommand routes to one `algorithms/tape_<verb>.hexa` (or `tool/<name>.hexa`) via `hexa run`.
+
+## Run
+
+```sh
+tape                            # show help (== `tape help` == `tape --help`)
+tape --version                  # tape v1.1 — <repo root>
+
+# guarded I/O
+tape bootstrap s001.tape s001         # initialise a new tape
+tape absorb --selftest                # schema-validated append (the safety-critical entry)
+
+# read / filter
+tape grep s001.tape --type=T --grade=denied
+tape health s001.tape
+tape kv-probe s001.tape               # byte-canonical prefix invariance
+tape dedup s001.tape
+tape index s001.tape                  # (turn, N, byte_offset, line_offset) seek
+
+# stream
+tape replay s001.tape                 # → [Message] for agent-loop resume
+tape compact s001.tape s001-compact.tape
+
+# .md ↔ .tape round-trip (TAPE.md P1 / P2 / P4)
+tape to-md s001.tape /tmp/s001.md             # whole-tape → markdown
+tape from-md DOMAIN.md DOMAIN.tape domain     # markdown → .tape (one-shot)
+tape query-table DOMAIN.tape --section=Inventory   # adjacent @D rows → markdown table
+tape to-md-log DOMAIN.md DOMAIN.tape 20       # rewrite ## Log AUTO-RENDER fence
+
+# placement bridges (v1.1)
+tape render-identity ~/.wilson/identity.tape  # → ## Identity prompt block
+tape meta-verify META.md META.tape            # Cn/Mm state from tape evidence
+tape domain-status ~/core/wilson               # walk repo, status matrix
+
+# sibling-format promotion
+tape to-n6 s001.tape atoms.n6                 # verified atoms → n6
+tape to-hxc s001.tape s001.tape.hxc           # cross-host wire
+
+# cargo-ledger migration
+tape markers-to-tape ~/.wilson/governance/markers /tmp/migrated.tape
+
+# every subcommand accepts --selftest
+tape from-md --selftest
+```
+
+`tape` reads `TAPE_ROOT` env to find the algorithm directory (default: derived from script path). Override `HEXA` env to use a non-default hexa binary path.
+
 ## Editor support
 
 `.tape` is not yet a registered language on [github/linguist](https://github.com/github-linguist/linguist), so GitHub does not natively highlight `.tape` fences. The repo ships a TextMate grammar that any modern editor can load — see [`syntaxes/README.md`](syntaxes/README.md) for VS Code / Sublime / TextMate install steps.
@@ -158,11 +215,13 @@ Browser-only view (combined): [`docs/preview.html`](docs/preview.html). Regenera
 tape/
 ├── README.md
 ├── LICENSE                       CC0-1.0
+├── bin/
+│   └── tape                      CLI dispatcher (`hx install` entry point)
 ├── spec/
-│   └── tape.md                   v1 grammar
-├── examples/                     valid .tape samples
+│   └── tape.md                   v1.1 grammar
+├── examples/                     valid .tape samples (01–07)
 ├── algorithms/                   19 hexa-lang reference modules
-├── tool/                         planned lint / replay / grade-audit CLIs
+├── tool/                         markers_to_tape migration tool (more planned)
 ├── syntaxes/
 │   └── tape.tmLanguage.json      TextMate grammar
 ├── docs/

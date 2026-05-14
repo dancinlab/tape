@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# tape — CLI dispatcher for the .tape toolchain
+#
+# Each subcommand maps to one `algorithms/tape_<verb>.hexa` module (or
+# `tool/<name>.hexa` for tools). All routed through `hexa run`.
+#
+# Env:
+#   TAPE_ROOT   — repo root (default: derived from script path)
+#   HEXA        — `hexa` binary name/path (default: `hexa`)
+#   HEXA_LANG   — hexa-lang repo root (passed through to `hexa run`)
+
+set -e
+
+# resolve script location → repo root
+SELF="$(readlink -f "$0" 2>/dev/null || python3 -c "import os,sys;print(os.path.realpath(sys.argv[1]))" "$0")"
+TAPE_ROOT="${TAPE_ROOT:-$(dirname "$(dirname "$SELF")")}"
+HEXA="${HEXA:-hexa}"
+
+# subcommand → algorithm path map (alphabetical)
+declare_route() {
+  case "$1" in
+    absorb)            echo "algorithms/tape_absorb.hexa" ;;
+    bootstrap)         echo "algorithms/tape_bootstrap.hexa" ;;
+    compact)           echo "algorithms/tape_compact.hexa" ;;
+    dedup)             echo "algorithms/tape_dedup.hexa" ;;
+    domain-status)     echo "algorithms/tape_domain_status.hexa" ;;
+    export-jsonl)      echo "algorithms/tape_export_jsonl.hexa" ;;
+    from-md)           echo "algorithms/md_to_tape.hexa" ;;
+    grep)              echo "algorithms/tape_grep.hexa" ;;
+    health)            echo "algorithms/tape_health.hexa" ;;
+    index)             echo "algorithms/tape_index.hexa" ;;
+    kv-probe)          echo "algorithms/tape_kv_probe.hexa" ;;
+    markers-to-tape)   echo "tool/markers_to_tape.hexa" ;;
+    meta-verify)       echo "algorithms/tape_meta_verify.hexa" ;;
+    query-table)       echo "algorithms/tape_query_table.hexa" ;;
+    render-identity)   echo "algorithms/tape_render_identity.hexa" ;;
+    replay)            echo "algorithms/tape_replay.hexa" ;;
+    to-hxc)            echo "algorithms/tape_to_hxc.hexa" ;;
+    to-md)             echo "algorithms/tape_to_md.hexa" ;;
+    to-md-log)         echo "algorithms/tape_to_md_log.hexa" ;;
+    to-n6)             echo "algorithms/tape_to_n6.hexa" ;;
+    *)                 echo "" ;;
+  esac
+}
+
+usage() {
+  cat <<EOF
+tape — Agent-Execution Trace toolchain
+
+Usage:
+  tape <subcommand> [args...]
+  tape --help | -h | help
+  tape --version | version
+
+Subcommands (alphabetical):
+
+  GUARDED I/O
+    absorb           schema-validated append (the safety-critical entry point)
+    bootstrap        initialise a new .tape with @S start
+
+  READ / FILTER
+    grep             type/domain/grade filter
+    health           per-type histogram + dangling-edge audit
+    kv-probe         byte-canonical prefix invariance check
+    dedup            duplicate (type, id) detection
+    index            (turn, N, byte_offset, line_offset) seek index
+
+  STREAM
+    replay           reconstruct [Message] for agent-loop resume
+    compact          fold streaming-delta @A lines into one block
+
+  PROJECTION (P1/P2/P4 markdown round-trip)
+    to-md            .tape → .md projection (whole-tape)
+    to-md-log        .tape tail → <DOMAIN>.md ## Log AUTO-RENDER fence
+    from-md          .md → .tape one-shot migration
+    query-table      adjacent @D events sharing key-set → markdown table
+
+  PLACEMENT BRIDGES (v1.1)
+    render-identity  ~/.wilson/identity.tape → ## Identity prompt block
+    meta-verify      meta-domain Cn/Mm state from tape evidence
+    domain-status    walk repo for <UPPERCASE>.{md,tape}, print health matrix
+
+  SIBLING-FORMAT PROMOTION
+    to-n6            verified atoms → n6 (.n6 atoms)
+    to-hxc           wrap in HXC v2 byte-canonical wire
+
+  MIGRATION
+    markers-to-tape  state/markers/*.marker → canonical .tape
+
+Each subcommand accepts \`--selftest\` for in-memory verification.
+
+Env:
+  TAPE_ROOT  $TAPE_ROOT
+  HEXA       $HEXA
+EOF
+}
+
+cmd="${1:-help}"
+case "$cmd" in
+  ""|help|--help|-h)
+    usage
+    exit 0
+    ;;
+  version|--version|-V)
+    echo "tape v1.1 — $TAPE_ROOT"
+    exit 0
+    ;;
+esac
+
+route="$(declare_route "$cmd")"
+if [ -z "$route" ]; then
+  echo "tape: unknown subcommand: $cmd" >&2
+  echo "tape: run 'tape help' for the list." >&2
+  exit 2
+fi
+
+shift
+exec "$HEXA" run "$TAPE_ROOT/$route" "$@"
