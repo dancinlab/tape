@@ -398,7 +398,25 @@ fn _selftest() -> i64 {
     return fail
 }
 
-let _rc = _selftest()
-if _rc != 0 { eprintln("[md_to_tape] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
-println("[md_to_tape] OK")
+// CLI entry — `hexa run <script> --selftest` OR `<script> <md.in> <tape.out> <domain>`.
+// args() returns [runtime, script_path, user_args...] — first user arg is at index 2.
+let _argv = args()
+if _argv.len() < 3 || _argv[2] == "--selftest" {
+    let _rc = _selftest()
+    if _rc != 0 { eprintln("[md_to_tape] selftest FAIL (" + to_string(_rc) + " errors)") ; exit(1) }
+    println("[md_to_tape] OK")
+    exit(0)
+}
+if _argv.len() < 5 {
+    eprintln("usage: md_to_tape <md.in> <tape.out> <domain>  |  --selftest")
+    exit(3)
+}
+let _md_path   = _argv[2]
+let _tape_path = _argv[3]
+let _domain    = _argv[4]
+let _md_body   = read_file(_md_path)
+if _md_body.len() == 0 { eprintln("read failed or empty: " + _md_path) ; exit(2) }
+let _tape_body = md_to_tape_convert(_md_body, _domain)
+write_file(_tape_path, _tape_body)
+println("[md_to_tape] wrote " + _tape_path + " (" + to_string(_tape_body.len()) + " bytes)")
 exit(0)
