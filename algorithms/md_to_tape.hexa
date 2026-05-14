@@ -77,6 +77,16 @@ fn _escape_json_str(s: string) -> string {
     return out
 }
 
+// A-Z → a-z lookup pair.
+let _UPPERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+let _LOWERS = "abcdefghijklmnopqrstuvwxyz"
+
+fn _to_lower_ch(ch: string) -> string {
+    let idx = _UPPERS.find(ch)
+    if idx < 0 { return ch }
+    return _LOWERS.substring(idx, idx + 1)
+}
+
 fn _slugify(s: string) -> string {
     let trimmed = s.trim()
     if trimmed.len() == 0 { return "x" }
@@ -85,17 +95,14 @@ fn _slugify(s: string) -> string {
     let mut prev_dash = false
     while i < trimmed.len() && out.len() < 32 {
         let ch = trimmed.substring(i, i + 1)
-        let is_alpha = (ch > "@" && ch < "[") || (ch > "`" && ch < "{")    // A-Z or a-z
+        let is_upper = _UPPERS.find(ch) > -1
+        let is_lower = _LOWERS.find(ch) > -1
         let is_digit = ch > "/" && ch < ":"
-        if is_alpha || is_digit {
-            // lowercase A-Z
-            if ch > "@" && ch < "[" {
-                let code = ch.substring(0, 1)
-                // simple lowercase: we can't easily lowercase without ord/chr; preserve as-is
-                out = out + code
-            } else {
-                out = out + ch
-            }
+        if is_upper {
+            out = out + _to_lower_ch(ch)
+            prev_dash = false
+        } else if is_lower || is_digit {
+            out = out + ch
             prev_dash = false
         } else {
             if !prev_dash && out.len() > 0 { out = out + "_" ; prev_dash = true }
@@ -115,15 +122,24 @@ fn _slugify(s: string) -> string {
 fn _parse_log_h3(line: string) -> [string] {
     if !_is_h3(line) { return ["", ""] }
     let rest = line.substring(4, line.len()).trim()
-    // expect 10 chars YYYY-MM-DD then space or — or ·
     if rest.len() < 11 { return ["", ""] }
     let date = rest.substring(0, 10)
-    // very loose check: contains 2 dashes at positions 4 and 7
     if date.substring(4, 5) != "-" || date.substring(7, 8) != "-" { return ["", ""] }
-    let after = rest.substring(10, rest.len()).trim()
+    let mut after = rest.substring(10, rest.len()).trim()
+    // optional HH:MM time portion — skip if next 5 chars look like NN:NN
+    if after.len() > 4 && after.substring(2, 3) == ":" {
+        let h1 = after.substring(0, 1)
+        let h2 = after.substring(1, 2)
+        let m1 = after.substring(3, 4)
+        let m2 = after.substring(4, 5)
+        let is_d = "0123456789"
+        if is_d.find(h1) > -1 && is_d.find(h2) > -1 && is_d.find(m1) > -1 && is_d.find(m2) > -1 {
+            after = after.substring(5, after.len()).trim()
+        }
+    }
     // strip leading separator chars
     let mut head = after
-    let leads = ["— ", "· ", "- ", "· ", ": "]
+    let leads = ["— ", "· ", "- ", "— ", ": "]
     let mut si: i64 = 0
     while si < leads.len() {
         let lead = leads[si]
