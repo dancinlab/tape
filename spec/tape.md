@@ -186,7 +186,7 @@ Quoted strings (`"..."`) attached as continuations with no edge prefix act as **
 ## Streaming invariants
 
 1. UTF-8, no BOM, LF line endings.
-2. New entries are appended to EOF; no in-place edits.
+2. New entries are appended to EOF; no in-place edits — **APPLIES TO**: `<sid>.tape` (per-session), `<DOMAIN>.log.tape` (domain history, v1.2 amendment), `recap/index.tape`, `<PROJ>::<DOMAIN>.tape` (cross-project federated). **DOES NOT APPLY TO**: `AGENTS.tape` (project-level governance), `identity.tape` (singleton), `<DOMAIN>.tape` (per v1.2 amendment, architecture-current — editable). These declarative-state files use latest-wins per `<id>` semantics.
 3. Every write passes through `tape_absorb()`:
    - schema validation (entry header well-formed)
    - dangling-edge check (every `<-` / `->` / `==` / `~>` / `\|>` / `!!` id payload references a prior id in the same file, OR is annotated as an external promise)
@@ -239,13 +239,17 @@ One grammar, five on-disk placements. Each placement carries a *majority* of cer
 
 | Placement | What | Majority types | Writer | Reader |
 |---|---|---|---|---|
-| `~/.wilson/identity.tape` | agent identity SSOT (singleton) | `@I` + `@H`/`@P` (declarative) | wilson core boot, `hexa build` post-step, `wilson whoami --set` | `_identity_block()`, governance scope check, pool cells |
-| `~/.wilson/harness-cli/sessions/<sid>.tape` | per-session conversation events | `@S`/`@U`/`@A`/`@T`/`@R`/`@K`/`@H`/`@D`/`@P`/`@?` | harness-cli per event | agent re-read on resume, recap injection, replay |
-| `~/.wilson/recap/index.tape` | session pointer index | `@S` start headers | recap plugin (`session_start @ observe`) | next-session recap injection |
-| `~/core/<repo>/<DOMAIN>.tape` | per-domain history events | `@A` + `@D` (with `domain=<lowercase>`) | git pre-commit hook by path→domain map, manual append | `wilson domain status`, `tape_to_md_log` (renders `## Log` section of `<DOMAIN>.md`) |
-| `~/core/atlas/<PROJ>::<DOMAIN>.tape` | cross-project federated history | same as `<DOMAIN>.tape` with `domain=<proj>::<dom>` | each project's push hook | atlas reader, federated query |
+| `~/.wilson/identity.tape` | agent identity SSOT (singleton · **editable** v1.2) | `@I` + `@H`/`@P` (declarative) | wilson core boot, `hexa build` post-step, `wilson whoami --set` | `_identity_block()`, governance scope check, pool cells |
+| `~/.wilson/harness-cli/sessions/<sid>.tape` | per-session conversation events (**append-only**) | `@S`/`@U`/`@A`/`@T`/`@R`/`@K`/`@H`/`@D`/`@P`/`@?` | harness-cli per event | agent re-read on resume, recap injection, replay |
+| `~/.wilson/recap/index.tape` | session pointer index (**append-only**) | `@S` start headers | recap plugin (`session_start @ observe`) | next-session recap injection |
+| `~/core/<repo>/AGENTS.tape` | project-level agent harness (**editable** v1.2) | `@V`/`@I`/`@C`/`@L`/`@D :: governance`/`@F`/`@X`/`@N`/`@H` declarative | hand-edited, per-repo session | Claude Code · Aider · downstream `tape_walk_tree` |
+| `~/core/<repo>/<DOMAIN>.tape` | per-domain **architecture-current** (**editable** v1.2) | `@V`/`@I`/`@C`/`@L`/`@D :: governance`/`@F`/`@X`/`@N` declarative | hand-edited as design evolves | `wilson domain status`, downstream consumers |
+| `~/core/<repo>/<DOMAIN>.log.tape` | per-domain **append-only history** (v1.2 NEW) | `@A`/`@T`/`@R`/`@K`/`@H`/`@?`/`@D :: decision` events | git pre-commit hook, runtime emit | `tape_to_md_log` (renders `## Log` section of `<DOMAIN>.md`) |
+| `~/core/atlas/<PROJ>::<DOMAIN>.log.tape` | cross-project federated **history** (**append-only**) | same as `<DOMAIN>.log.tape` with `domain=<proj>::<dom>` | each project's push hook | atlas reader, federated query |
 
-All five share the same `tape_absorb` validator and the same `algorithms/tape_*.hexa` catalog. The placement determines what events dominate; the grammar is fixed.
+All placements share the same `tape_absorb` validator and the same `algorithms/tape_*.hexa` catalog. The placement determines what events dominate AND the mutability semantics (editable vs append-only). The grammar is fixed.
+
+**v1.2 mutability summary**: declarative placements (`identity.tape`, `AGENTS.tape`, `<DOMAIN>.tape`) are EDITABLE — they carry the current architecture state and evolve in place with latest-wins-per-id semantics. Event-stream placements (`<sid>.tape`, `<DOMAIN>.log.tape`, `<PROJ>::<DOMAIN>.log.tape`, `recap/index.tape`) are APPEND-ONLY per §"Streaming invariants" rule #2.
 
 ## Identity tape (`~/.wilson/identity.tape`)
 
@@ -270,12 +274,25 @@ Pool / swarm cells inherit identity via a `<- mac-m1:identity@birth` edge in the
 
 Wilson's governance principle #4 (`domain-meta-domain`) defines root `<UPPERCASE>(+<UPPERCASE>)*.md` files with a head (live conditions) + `---` + `## Log` (append-only chronological history). The `## Log` discipline is author-only — governance lint enforces filename shape but cannot enforce content.
 
-`<DOMAIN>.tape` closes that gap. Each `<DOMAIN>.md` has a sibling `<DOMAIN>.tape`; the tape carries the events that *would* have been logged manually, and `tape_to_md_log` renders the `## Log` section deterministically from the tape tail.
+### Architecture-vs-history split (v1.2 amendment, 2026-05-14)
 
-Render template:
+Domain tapes now use **two separate placements** with different mutability semantics:
+
+| File | Mutability | Carries | Edit policy |
+|---|---|---|---|
+| **`<DOMAIN>.tape`** | architecture-current (editable) | `@V` · `@I` · `@C` · `@L` · `@D :: governance` · `@F` · `@X` · `@N` declarative entries | Continuously edited as the design evolves. Latest-wins per `<id>`. Like `<DOMAIN>.md` itself — it carries the architecture-complete current state. |
+| **`<DOMAIN>.log.tape`** | append-only history | `@A` · `@T` · `@R` · `@K` · `@?` runtime events · `@D :: decision` decision events · `@H` hook fires | Strictly append-only per §"Streaming invariants" rule #2. Each entry is a historical event; never edited or deleted. |
+
+**Why split**: declarative governance / identity / layout claims naturally evolve (a config value changes, a rule is reworded, a layout entry is renamed). Forcing all updates to be append-only with `~>` supersedes edges produces a noisy history where every edit creates 2 entries. The split lets architecture entries live in their natural "current state" form while history (events that already happened) stays immutable.
+
+**Rule of thumb**: if removing or rewording an entry would be a coherent action ("the spec changed"), it belongs in `<DOMAIN>.tape`. If the entry records something that **happened** at a specific point in time, it belongs in `<DOMAIN>.log.tape`.
+
+### Render
+
+`tape_to_md_log` renders the `## Log` section of `<DOMAIN>.md` from `<DOMAIN>.log.tape` (not from `<DOMAIN>.tape`):
 
 ```markdown
-<!-- AUTO-RENDER from HARNESS.tape (last N entries) -->
+<!-- AUTO-RENDER from HARNESS.log.tape (last N entries) -->
 ### 2026-05-13 14:30  ·  TUI raw-mode lands
 @A a001 :: harness — commit b3706a1
 <!-- /AUTO-RENDER -->
@@ -283,7 +300,15 @@ Render template:
 
 The `<!-- AUTO-RENDER -->` ... `<!-- /AUTO-RENDER -->` fence is the idempotent rewrite zone; anything outside is human-written and preserved.
 
-`git pre-commit` hook (suggested wiring): walk the changed-file set, map each path → domain via `plugins/<id>/` → domain, append one `@A commit_<short_sha> :: <domain> [d=<date> ok]` event to each touched domain tape. ## Log auto-fills on next render.
+`git pre-commit` hook (suggested wiring): walk the changed-file set, map each path → domain via `plugins/<id>/` → domain, **append** one `@A commit_<short_sha> :: <domain> [d=<date> ok]` event to each touched `<DOMAIN>.log.tape`. The `## Log` section of `<DOMAIN>.md` auto-fills on next render. The architecture `<DOMAIN>.tape` is untouched by commit hooks; it changes only when the design changes.
+
+### Migration of pre-split tapes
+
+Tapes that existed before this split (v1.1 era) carried both architecture and history mixed in a single `<DOMAIN>.tape`. Migration is optional and per-repo:
+
+1. Leave existing `<DOMAIN>.tape` as the architecture-current form (drop or supersede stale history entries).
+2. Create `<DOMAIN>.log.tape` for new append-only events.
+3. Old history entries already mixed in `<DOMAIN>.tape` are not moved — they remain as historical artifacts. New entries follow the split.
 
 ## Meta-domain verification (`<D1+D2+D3>.md`)
 
