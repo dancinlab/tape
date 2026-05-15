@@ -32,6 +32,12 @@
 
 - [`docs/DESIGN.md`](DESIGN.md) — why a 4th sibling · why typed events not raw JSONL · why provenance edges · promotion-target sibling pattern
 
+## Cohort conventions (emerging)
+
+Conventions adopted by .tape-using cohorts that other cohorts may find useful. These are convention layers on top of the v1.x grammar, not spec changes.
+
+- **`tape-class = "meta..."` opt-in** (originated `dancinlab/hexa-bio`, 2026-05-16) — body key in `@I id001` that flags a tape as meta (changelog · plan · handoff · backlog index · governance doc). Originated for cohort-wide honesty linting: meta tapes have no literature anchor by nature, so a cohort's honesty checker widens its grounding clause for opted-in meta tapes to accept `@X :: governance` entries and `methodology-cite =` body lines, while keeping guard + stance clauses identical. Hexa-bio's [`selftest/tape_lattice_honesty_lint.py`](https://github.com/dancinlab/hexa-bio/blob/main/selftest/tape_lattice_honesty_lint.py) is the reference implementation; the convention is honest-FAIL-friendly (a meta tape can decline to opt in and remain FAIL by design).
+
 ## CI
 
 - [`.github/workflows/lint.yml`](../.github/workflows/lint.yml) — byte-canonical invariants + entry-header well-formedness checks on `examples/*.tape`
