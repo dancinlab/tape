@@ -310,6 +310,99 @@ Tapes that existed before this split (v1.1 era) carried both architecture and hi
 2. Create `<DOMAIN>.log.tape` for new append-only events.
 3. Old history entries already mixed in `<DOMAIN>.tape` are not moved — they remain as historical artifacts. New entries follow the split.
 
+> **Auto-classification doesn't work** — runtime grade markers like `[ok]` were used in v1.1-era tapes both for "delivered cleanly" runtime events and for "this fact is current/true" architecture entries. Any mechanical heuristic (grade · prefix · entry type) misclassifies a substantial fraction. **Split requires LLM-judgment per entry** based on author intent: does this describe what something IS (architecture) or what happened at a point in time (log)? See `dancinlab/anima/REBORN.tape` (213 arch · 1968 log split commit `7ceaa6882`) for a canonical example.
+
+### Authoring guide — `<DOMAIN>.tape` (architecture-current)
+
+**When to add an entry to `.tape`**: the entry describes the **current state** of the substrate. Removing or rewording it would be a coherent action ("the spec changed"). The entry has no time anchor.
+
+**Entry types belonging in `.tape`**:
+- `@V` — spec version declaration (once at top)
+- `@I id001` — domain identity (once · kind / brief / parent / sibling-log)
+- `@I id00N` — sub-identity claims (specializations of id001 via `<:`)
+- `@C` — config values · paths · defaults
+- `@L l1` — repo / sub-tree layout
+- `@D :: governance` — policy clauses · rules · contracts
+- `@F` — forbidden patterns · deny rules
+- `@X` — external citations · cross-refs to other repos / standards
+- `@N` — LLM-only notes · hints · clarifications
+- `@H` — generator hooks (`@> <output>`)
+
+**How to edit**: open `.tape`, change the entry in place. No `~>` supersedes needed. Commit as part of the design change that motivated it.
+
+```tape
+# WAS:
+@C c_session_dir := "session-dir" :: config [active]
+  value = "~/.wilson/sessions/"
+
+# NOW (config value changed · just edit in place):
+@C c_session_dir := "session-dir" :: config [active]
+  value = "~/.wilson/harness-cli/sessions/"
+```
+
+### Authoring guide — `<DOMAIN>.log.tape` (append-only history)
+
+**When to add an entry to `.log.tape`**: the entry records something that **happened at a specific point in time**. The entry is permanent — never edited, never deleted.
+
+**Entry types belonging in `.log.tape`**:
+- `@A` — assistant action · commit landed · feature implemented
+- `@T` — tool invocation · test run
+- `@R` — tool result · test outcome
+- `@K` — cost record · per-cycle measurement
+- `@H` — hook fire event (not a hook declaration · that's in `.tape`)
+- `@?` — anomaly · error · rate-limit
+- `@D :: decision` — decision event (not a governance rule · which goes in `.tape`)
+- `@S` — session start / end / resume
+
+**How to append**: open `.log.tape`, add new entry at EOF (or at the bottom of `# §Log` section). Always include `d=<YYYY-MM-DD>` or `T<n> N<n>` time anchor in the grade bracket.
+
+```tape
+# Daily entry pattern (canonical):
+@A commit_2709dc7 :: harness [d=2026-05-14 ok]
+  <- prev_a_id
+  => "TUI logo aspect fix — flat-top hexagons"
+
+@D d_dispatch_table_regen := "regenerate dispatch_table" :: decision [d=2026-05-14 ok]
+  <- request_from_user
+  why = "wilson build --with X needs runtime dispatch table edit"
+  |> bash_exec_passed
+```
+
+**Pre-commit hook integration** (suggested wiring):
+
+```bash
+#!/bin/sh
+# .git/hooks/pre-commit — append @A commit event to touched <DOMAIN>.log.tape
+SHA=$(git rev-parse --short HEAD)
+DATE=$(date +%Y-%m-%d)
+git diff --cached --name-only | while read f; do
+  # path → domain map (per repo)
+  domain=$(map_path_to_domain "$f")
+  echo "" >> "${domain}.log.tape"
+  echo "@A commit_${SHA} :: ${domain} [d=${DATE} ok]" >> "${domain}.log.tape"
+  echo "  => \"$(git log -1 --pretty=%s)\"" >> "${domain}.log.tape"
+done
+```
+
+The hook NEVER touches `<DOMAIN>.tape` — that file changes only when the design changes (manual edit).
+
+### Common pitfalls
+
+- ❌ **Adding an `@A commit_*` event to `.tape`** — `@A` is always log. Move to `.log.tape`.
+- ❌ **Adding a `@C config-value` to `.log.tape`** — `@C` is always architecture. Move to `.tape`.
+- ❌ **Editing an entry in `.log.tape`** — break of append-only invariant. Use `~>` supersedes edge in a NEW entry instead.
+- ❌ **Letting `.tape` accumulate dated entries** — over time `.tape` becomes a log. Periodic LLM review + extraction to `.log.tape` is required.
+- ❌ **Forgetting the time anchor on `.log.tape` entries** — every log entry MUST have `d=<date>` or `T<n>` for chronological ordering. Without it, replay/recap cannot order events.
+
+### Validation
+
+The `tape_absorb` validator enforces:
+1. `.tape` files reject `@A` / `@T` / `@R` / `@K` / `@?` types (runtime events) at append time. (Implementation pending.)
+2. `.log.tape` files reject in-place edits — only EOF appends allowed. (Implementation pending — currently honor-system enforced.)
+3. Every `.log.tape` entry must carry a time-anchor grade tag (`d=YYYY-MM-DD` or `T<n> N<n>`). (Implementation pending.)
+
+Until validators land, authoring is honor-system. The LLM-judgment classification rule is the primary discipline.
+
 ## Meta-domain verification (`<D1+D2+D3>.md`)
 
 A meta-domain file enumerates constituent conditions Cn and joint conditions Mm. v1.1 expresses each condition as a `@D` event in `<D1+D2+D3>.tape` with `domain=meta-domain`:
