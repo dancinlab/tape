@@ -83,7 +83,6 @@
 
 @D g1 := "honest-caveat-first" :: governance [required]
   rule = "Every claim coupling n=6 lattice to external phenomena ships with one-line honest caveat."
-  why = "raw#10 C3 + echoes/LATTICE_POLICY.md §1.2/§1.3 — overclaim destroys credibility"
   applies-to <<~EOF
     Every section in README.md
     Every entry referencing external entities (NASA · IPCC · IBC · constitutional bodies)
@@ -115,7 +114,6 @@
 
 @F f1 := "external-lattice-fit" :: governance [required deny:write]
   pattern = "n=6 / σφτ identity applied as derivation rule to NASA · SpaceX · IPCC · IBC · constitutional bodies"
-  why = "raw#10 C3 — external entities use their own published invariants (Stefan-Boltzmann · c · ℏ · k · Carnot · ASML throughput · ERCOT capacity)"
   exception = "values may coincidentally match (e.g. 6 = 6 axes in IBC) — that's allowed as observation, NOT derivation"
   authority = "[@x1] §1.2/§1.3"
 
@@ -128,10 +126,8 @@
 
 @X x1 := "echoes/LATTICE_POLICY.md" :: policy [d=2026-05-13 active]
   url = "https://github.com/dancinlab/echoes/blob/main/LATTICE_POLICY.md"
-  scope = "n=6 lattice usage governance · external-entity ban · raw#10 C3"
   version = "1.0"
 
-@X x2 := "echoes raw#10 C3" :: governance-decision [d=2026-04-21 active]
   url = "https://github.com/dancinlab/echoes/blob/main/raw/10.md#c3"
   scope = "honest-caveat policy origin · forbidden lattice-fit on external entities"
 
