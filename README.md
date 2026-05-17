@@ -208,6 +208,14 @@ hard errors (consumers skip-not-reject per forward-compat). A Claude Code
 plugin can wire it via `.lsp.json`:
 `{ "tape": { "command": "tape-lsp", "extensionToLanguage": {".tape":"tape"} } }`.
 
+### tree-sitter grammar (`tree-sitter-tape/`)
+
+A tree-sitter grammar for editors on the tree-sitter stack (Neovim, Helix,
+Zed, Emacs). Total line model — every line resolves to `comment` / `header`
+/ `edge` / `body` / `text` / `blank`, exposing `type` and `edge_op` nodes
+for `queries/highlights.scm`. Verified: `tree-sitter parse` reaches **0
+ERROR** on all `examples/*.tape`. Build: `cd tree-sitter-tape && tree-sitter generate`.
+
 ### Live preview
 
 Both themes rendered with [shiki](https://shiki.style/) from the shipped grammar — same content, different theme.
