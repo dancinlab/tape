@@ -52,6 +52,10 @@
   primer = "see top-of-file 35-line comment block"
   self-reference = "this AGENTS.tape is the v1.2 grammar applied to the v1.2 spec's home repo"
 
+@X wilson_pool := "wilson pool — resource utilization" :: guide [active]
+  tldr = "Heavy / deterministic work (build · drill · probe · compile · test-sweep · GPU fire) → do NOT serialize on localhost; route to the host pool: `wilson pool list` then `wilson pool on <host> <cmd>`, or a ToolUse `\"host\"` field. Empty roster = degrade-to-local, fine."
+  detail = "~/core/atlas/POOL.tape"
+
 # ─── §2 Identity claims (what this project IS) ────────────────────────
 
 @I id001 := "tape" :: identity-claim [d=2026-05-14 active]
