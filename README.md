@@ -191,6 +191,23 @@ tape from-md --selftest
 
 `.tape` is not yet a registered language on [github/linguist](https://github.com/github-linguist/linguist), so GitHub does not natively highlight `.tape` fences. The repo ships a TextMate grammar that any modern editor can load — see [`syntaxes/README.md`](syntaxes/README.md) for VS Code / Sublime / TextMate install steps.
 
+### LSP (`lsp/tape_lsp.py`)
+
+A zero-dependency stdio LSP server (Python 3.8+) — spec-grounded diagnostics
+(BOM/CRLF invariant, 17-type alphabet, header shape, 2-space body indent,
+12-edge alphabet, heredoc skip) + hover for entry types and edge operators.
+
+```bash
+bin/tape-lsp                 # speak LSP on stdin/stdout (point your editor here)
+bin/tape-lsp --check FILE    # one-shot lint (exit 1 on any error)
+```
+
+Verified against all `examples/*.tape` (0 errors) and a deliberately broken
+fixture. Conservative by design: unrecognised body forms are hints, never
+hard errors (consumers skip-not-reject per forward-compat). A Claude Code
+plugin can wire it via `.lsp.json`:
+`{ "tape": { "command": "tape-lsp", "extensionToLanguage": {".tape":"tape"} } }`.
+
 ### Live preview
 
 Both themes rendered with [shiki](https://shiki.style/) from the shipped grammar — same content, different theme.

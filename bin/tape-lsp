@@ -1,0 +1,6 @@
+#!/usr/bin/env sh
+# tape-lsp launcher — canonical .tape LSP server (stdio JSON-RPC).
+#   tape-lsp              speak LSP
+#   tape-lsp --check F    one-shot lint
+dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+exec python3 "$dir/lsp/tape_lsp.py" "$@"
