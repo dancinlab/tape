@@ -532,6 +532,36 @@ A separate `SEED.tape` (or per-session `<sid>.tape`) carries the **runtime** hal
 
 **Fallback generator**: `tape_to_agents_md(AGENTS.tape) → AGENTS.md` (per `@H :: generator` hooks with `@> AGENTS.md` edge) emits a markdown rendition for tooling that doesn't speak `.tape` natively. The `.tape` is the SSOT; the `.md` is a derived view.
 
+## Compactness invariants (v1.2 amendment, 2026-05-20)
+
+Declarative entries in `AGENTS.tape`, `identity.tape`, and `<DOMAIN>.tape` are subject to hard caps on per-entry size. The cap forces terse, dense entries — long prose belongs in commit messages or linked `.md` files, not in tape entries that every agent re-reads on every session.
+
+| Cap | Limit | Rationale |
+|---|---|---|
+| Entry total | ≤ 500 chars (header line + all body lines, joined with `\n`, including indentation) | Forces a single concept per entry; the longest pre-cap real-world entry was ~570 chars and was already drifting toward prose |
+| Field value | 1 line (no `\n` inside a value — heredoc payload form is banned in declarative tapes) | The heredoc form (`<<~EOF`) is a multi-line escape hatch; allowing it lets prose creep back in |
+| Field count | ≤ 5 fields per entry | Forces decomposition of overloaded entries — split into multiple `@<type>` blocks rather than overloading one |
+
+**Character counting**: 1 glyph = 1 char. CJK (Korean / Chinese / Japanese) is weighted identically to Latin — Korean's higher information density means the same 500 char cap is stricter for English than for Korean, which matches authoring intent. Newline characters count as 1 char each.
+
+**Measurement range**: the header line + every continuation line that belongs to the entry (indented two spaces, until blank line or next column-0 header). Comments (`#`) are not part of any entry and are not counted.
+
+**Scope**: applies to **declarative** placements — `AGENTS.tape`, `identity.tape`, `<DOMAIN>.tape`. **Does NOT apply to** append-only event-stream placements — `<sid>.tape`, `<DOMAIN>.log.tape`, `recap/index.tape` — those record what happened and runtime events have natural length variation.
+
+**Enforcement**:
+
+- `tape_absorb()` SHOULD emit a `[recommended]`-grade warning for oversized declarative entries (validator implementation pending).
+- Sidecar `wilson-minimal-keep` plugin (≥ 0.6.0) blocks `PreToolUse` Write/Edit/MultiEdit that introduces an oversized `@<type>` block via its S4 signal.
+
+**Authoring recipe when over the cap**:
+
+1. Split — separate concerns into two `@<type>` entries with a `<:` / `?>` edge between them.
+2. Shorten — replace prose with symbol-dense notation (`·` instead of "and", `→` instead of "then", `⊕` instead of "with").
+3. Reference — point to an external `.md` via `parent` / `ssot` / inline citation `[@<id>]` instead of restating its content.
+4. Drop — if the field is redundant with another entry or with `<DOMAIN>.md` content, remove it.
+
+Splitting a `<<~EOF` heredoc into multiple `key1` / `key2` / `key3` single-line fields (or into multiple entries) is the canonical migration path off the banned heredoc form for declarative tapes.
+
 ## Project-tree convention (v1.2 — for `AGENTS.tape` ecosystem)
 
 Each `AGENTS.tape`'s top-level `@I id001` (the repo identity) carries tree-edge fields that let an algorithm (`tape_walk_tree`) crawl every `~/core/*/AGENTS.tape` and emit an aggregate project tree as a *derived view*. SSOT stays per-repo; the tree is computed.
@@ -601,6 +631,7 @@ Tape edges (`<:` `:>` `<-` etc.) are within-file only per §"Edge operators". Cr
 - **v1** (2026-05-13) — 10 types · 7 edges · 5 delivery markers · open domain alphabet. Single placement (per-session tape).
 - **v1.1** (2026-05-13) — 11 types (adds `@I` identity) · 7 edges (unchanged) · 6 grade markers (adds `superseded` for `@I`) · open domain alphabet extended with `identity` / `meta-domain` / `atlas`. Five placements (per-session, identity singleton, recap index, per-domain, cross-project atlas). Adds 4 algorithms: `tape_render_identity`, `tape_to_md_log`, `tape_meta_verify`, `tape_domain_status`.
 - **v1.2** (this spec, 2026-05-14) — 17 types (adds `@X` external-citation, `@F` forbidden-pattern, `@N` note, `@C` config, `@L` layout, `@V` spec-version) · 12 edges (adds `<:` specializes, `:>` generalizes, `?>` soft-depends, `!>` conflicts-with, `@>` projects-to) · governance grade tags (`required` / `recommended` / `optional` / `draft` / `active` / `deprecated` / `allow:<x>` / `deny:<x>`) · payload-syntax extensions (heredoc / array literal / `[@id]` inline citation / backtick code-span) · grammar primer header convention · `AGENTS.tape` pattern (replaces `AGENTS.md` cross-project). Adds 1 algorithm: `tape_to_agents_md` (fallback markdown generator).
+- **v1.2 amendment** (2026-05-20) — Compactness invariants for declarative entries (`AGENTS.tape` / `identity.tape` / `<DOMAIN>.tape`): per-entry ≤ 500 chars · field values must be 1 line (heredoc banned in declarative tapes) · ≤ 5 fields per entry. CJK and Latin glyphs counted identically (1 glyph = 1 char). Append-only event-stream tapes (`<sid>.tape` / `<DOMAIN>.log.tape`) are unaffected. Enforced by `tape_absorb` (warning-grade, pending) and by sidecar `wilson-minimal-keep` ≥ 0.6.0 (PreToolUse block).
 - **v2** (reserved) — anticipated additions: structured payload on `@K` (per-model token breakdown); binary attachment side-car (analog of wilson's `_attachments` for `@R` lines pointing to images / files); n6-style verification-grade overlay for adapters that need it.
 
 Forward-compatibility rule: a v1.1 reader MUST skip any header line whose `<type>` is not in the v1.1 alphabet of {S, U, A, T, R, H, D, K, P, I, ?} rather than reject. Edge operators outside the v1 set of {`<-`, `->`, `=>`, `==`, `~>`, `\|>`, `!!`} MUST also be skipped rather than rejected. v1 readers encountering an `@I` line MUST skip-not-reject per the same rule. v1.1 readers encountering v1.2 types `{X, F, N, C, L, V}` or v1.2 edges `{<:, :>, ?>, !>, @>}` MUST skip-not-reject per the same rule.
