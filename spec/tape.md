@@ -562,6 +562,74 @@ Declarative entries in `AGENTS.tape`, `identity.tape`, and `<DOMAIN>.tape` are s
 
 Splitting a `<<~EOF` heredoc into multiple `key1` / `key2` / `key3` single-line fields (or into multiple entries) is the canonical migration path off the banned heredoc form for declarative tapes.
 
+## Governance imperative — `@D :: governance` body closed at {do, dont} (v1.3 amendment, 2026-05-20)
+
+`@D :: governance` entries (in `AGENTS.tape`, `identity.tape`, `<DOMAIN>.tape`) carry **imperative directives only**. The body fields are constrained to a closed two-key set; legacy field keys (`rule`, `why`, `apply`, `cross_link`, `honest_carve_out`, `scope_guard`, `*_examples`, `*_calculus`, `authority`, `remedy`, `evidence`, `note`, `status`, `forbidden`, `insufficient`, …) are deprecated and rejected at validation. The single concept per entry stays — but the entry says only **what to do** and **what not to do**, not *why* or *how* or *for whom* (those belong in `archive/PHILOSOPHY.tape`, commit messages, or `<DOMAIN>.md` prose).
+
+| Field | Form | Use |
+|---|---|---|
+| `do = "<imperative>"` | Single line | What MUST be done — the rule itself in imperative form |
+| `dont = "<imperative>"` | Single line | What MUST NOT be done — forbidden patterns. Inline exceptions go in parentheticals: `dont = "X (단 Y / Z 예외)"` |
+
+Edges (`@>`, `<-`, `<:`, `?>`, `!>`, …) remain allowed as before — they are not body keys. The `:= "<subject>"` header subject is the short slug (≤ 60 chars).
+
+**Worked example** (anima `g_no_cost_scope_limit`, before/after):
+
+```tape
+# v1.2-era (verbose — now deprecated):
+@D g_no_cost_scope_limit := "cost cap + scope limit + rate-limit-floor = ALL UNLIMITED — 어디서도 limit 표현 금지" :: governance [required d=2026-05-20 active]
+  rule = "anima 의 모든 작업에 cost cap 없음 · scope limit 없음 · rate-limit floor 없음. user directive verbatim..."
+  scrub_target = "AGENTS.tape body 의 'conservative cost cap' 표현 ..."
+  apply = "(1) AGENTS.tape g_fire_autonomous + g_resource_active_parallel + ..."
+  why = "user 8-directive batch 2026-05-20 ..."
+  honest_carve_out = "**제한 0 = 안전 0 아님**: B-EMERGE-7 / B-IDENTITY-5 ..."
+  cross_link = "g_fire_autonomous + g_resource_active_parallel + ..."
+  @> CLAUDE.md
+
+# v1.3 (imperative — required):
+@D g_no_cost_scope_limit := "cost·scope·rate-limit 0" :: governance [required d=2026-05-20 active]
+  do   = "모든 작업에 cost cap 0 · scope limit 0 · rate-limit floor 0"
+  dont = "hard-floor·'conservative cap'·'production safety floor' (단 g_blue/B-IDENTITY-5/g3/f1f2 honest invariants 예외)"
+  @> CLAUDE.md
+```
+
+**Caps** (v1.3 narrows the field set; size stays under v1.2's general cap):
+
+| Cap | v1.2 (all declarative) | v1.3 (`@D :: governance` only) |
+|---|---|---|
+| Entry total | ≤ 500 chars | unchanged (S4 already enforces) |
+| Field count | ≤ 5 fields | ≤ 2 fields (`{do, dont}`) |
+| Field key set | open | closed: `{do, dont}` |
+| Field value | 1 line, heredoc banned | unchanged |
+
+The 2-field × ~200-char-each + header bounds governance entries naturally under 500 — no separate v1.3 size cap needed.
+
+**Where the dropped content goes**:
+
+- `why` (rationale · user-directive verbatim · incident anchor) → `archive/PHILOSOPHY.tape` (anima-style append-only ledger) or commit message.
+- `cross_link` (related entry IDs) → slug naming convention (e.g. `g_fire_*` family) + `grep` when needed.
+- `apply` / `scope_guard` (how/where to apply) → folded into `do`/`dont` body with `·` separator.
+- `honest_carve_out` (exceptions / invariants) → folded into `dont` with parenthetical `(단 X / Y 예외)`.
+- `*_examples` / `*_calculus` (illustrative cases) → dropped, or moved to `<DOMAIN>.md` prose body.
+- `authority` / `remedy` / `evidence` → dropped (the rule is its own authority; remedies/evidence live elsewhere).
+
+**Scope**: applies **only to `@D :: governance` entries**. Other declarative types (`@I` identity, `@C` config, `@L` layout, `@X` external citation, `@F` forbidden, `@N` note, `@V` spec version) keep their open-key body form. The v1.2 Compactness invariants (≤ 500 chars · ≤ 5 fields · heredoc banned) continue to apply to those.
+
+`@D :: decision` (decision events on `<DOMAIN>.log.tape`) is NOT governance and is unaffected — append-only event-stream tapes carry runtime `@D` events that record what was decided (with `why` / `proof` / etc.) and are out of scope.
+
+**Enforcement**:
+
+- `tape_absorb()` SHOULD reject `@D :: governance` with non-`{do, dont}` body keys (validator implementation pending — same status as v1.2 Compactness).
+- Sidecar `wilson-minimal-keep` plugin (≥ 0.8.0) blocks `PreToolUse` Write/Edit/MultiEdit via its S5 signal — same hook surface as the existing S4 cap.
+
+**Migration**: pre-v1.3 entries are **grandfathered until the next Write touches them**. A one-shot scrub recipe:
+
+1. Backup the current `AGENTS.tape` to `archive/AGENTS-pre-v1.3-<date>.tape` (preserves history without violating the live cap).
+2. Rewrite each `@D :: governance` entry in `do`/`dont` form, condensing exceptions into parentheticals.
+3. Commit. PHILOSOPHY.tape retains the historical `why` context — no information is lost, only relocated.
+
+A scrub that leaves *any* `@D :: governance` entry with a non-conforming key will be blocked by `wilson-minimal-keep` ≥ 0.8.0 on the next Write of the full file (S1 + S5 fire together).
+
 ## Project-tree convention (v1.2 — for `AGENTS.tape` ecosystem)
 
 Each `AGENTS.tape`'s top-level `@I id001` (the repo identity) carries tree-edge fields that let an algorithm (`tape_walk_tree`) crawl every `~/core/*/AGENTS.tape` and emit an aggregate project tree as a *derived view*. SSOT stays per-repo; the tree is computed.
@@ -632,6 +700,7 @@ Tape edges (`<:` `:>` `<-` etc.) are within-file only per §"Edge operators". Cr
 - **v1.1** (2026-05-13) — 11 types (adds `@I` identity) · 7 edges (unchanged) · 6 grade markers (adds `superseded` for `@I`) · open domain alphabet extended with `identity` / `meta-domain` / `atlas`. Five placements (per-session, identity singleton, recap index, per-domain, cross-project atlas). Adds 4 algorithms: `tape_render_identity`, `tape_to_md_log`, `tape_meta_verify`, `tape_domain_status`.
 - **v1.2** (this spec, 2026-05-14) — 17 types (adds `@X` external-citation, `@F` forbidden-pattern, `@N` note, `@C` config, `@L` layout, `@V` spec-version) · 12 edges (adds `<:` specializes, `:>` generalizes, `?>` soft-depends, `!>` conflicts-with, `@>` projects-to) · governance grade tags (`required` / `recommended` / `optional` / `draft` / `active` / `deprecated` / `allow:<x>` / `deny:<x>`) · payload-syntax extensions (heredoc / array literal / `[@id]` inline citation / backtick code-span) · grammar primer header convention · `AGENTS.tape` pattern (replaces `AGENTS.md` cross-project). Adds 1 algorithm: `tape_to_agents_md` (fallback markdown generator).
 - **v1.2 amendment** (2026-05-20) — Compactness invariants for declarative entries (`AGENTS.tape` / `identity.tape` / `<DOMAIN>.tape`): per-entry ≤ 500 chars · field values must be 1 line (heredoc banned in declarative tapes) · ≤ 5 fields per entry. CJK and Latin glyphs counted identically (1 glyph = 1 char). Append-only event-stream tapes (`<sid>.tape` / `<DOMAIN>.log.tape`) are unaffected. Enforced by `tape_absorb` (warning-grade, pending) and by sidecar `wilson-minimal-keep` ≥ 0.6.0 (PreToolUse block).
+- **v1.3 amendment** (2026-05-20) — Governance imperative for `@D :: governance` entries: body keys closed at `{do, dont}` only · ≤ 2 fields. Size stays under v1.2's general 500-char cap (no separate v1.3 size threshold). Other declarative types unaffected. Pre-v1.3 entries grandfathered until next Write. Enforced by `tape_absorb` (pending) and by sidecar `wilson-minimal-keep` ≥ 0.8.0 (PreToolUse S5 block).
 - **v2** (reserved) — anticipated additions: structured payload on `@K` (per-model token breakdown); binary attachment side-car (analog of wilson's `_attachments` for `@R` lines pointing to images / files); n6-style verification-grade overlay for adapters that need it.
 
 Forward-compatibility rule: a v1.1 reader MUST skip any header line whose `<type>` is not in the v1.1 alphabet of {S, U, A, T, R, H, D, K, P, I, ?} rather than reject. Edge operators outside the v1 set of {`<-`, `->`, `=>`, `==`, `~>`, `\|>`, `!!`} MUST also be skipped rather than rejected. v1 readers encountering an `@I` line MUST skip-not-reject per the same rule. v1.1 readers encountering v1.2 types `{X, F, N, C, L, V}` or v1.2 edges `{<:, :>, ?>, !>, @>}` MUST skip-not-reject per the same rule.
