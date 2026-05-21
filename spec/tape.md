@@ -630,6 +630,36 @@ The 2-field × ~200-char-each + header bounds governance entries naturally under
 
 A scrub that leaves *any* `@D :: governance` entry with a non-conforming key will be blocked by `wilson-minimal-keep` ≥ 0.8.0 on the next Write of the full file (S1 + S5 fire together).
 
+## Governance tool annotation — `@D :: governance` body extended with `tool` / `usage` (v1.4 amendment, 2026-05-22)
+
+v1.3 closed the body at `{do, dont}`. v1.4 ADDS two OPTIONAL keys for canonical CLI / tool annotation. The closed set is now `{do, dont, tool, usage}` — body-cap stays under the v1.2 general 5-fields-per-entry rule (4 keys max with all present).
+
+| Field | Form | Use |
+|---|---|---|
+| `tool = "<name>"` | Single line · optional | Canonical CLI / tool / feature the rule references (e.g. `"hexa verify"`, `"pool"`, `"Monitor (Claude Code)"`). Omit when the rule is language-level / process-level and names no specific tool. |
+| `usage = "<syntax>"` | Single line · optional | Canonical invocation syntax mirroring `--help` (e.g. `"hexa cloud {run\|nohup\|poll\|copy-to\|copy-from}"`, `"pool on <host> <cmd>"`). Omit when `tool` itself is the full invocation. |
+
+Field order convention: `do`, `dont`, `tool`, `usage`.
+
+**Rationale**: cross-project governance commons (`commons.tape` and equivalents) routinely reference specific CLI verbs (`hexa verify`, `pool`, `Monitor`). v1.3's strict do/dont closure forced the tool name inline in the `do` sentence — visually scannable but not machine-extractable. `tool = "..."` makes the canonical tool a first-class field that tooling (LSP hover, registry indexers, dashboard widgets) can read directly, and gives LLM attention an explicit anchor for which command to recommend.
+
+**Worked example** (sidecar commons):
+
+```tape
+@D g8 := "runpod dispatch via hexa cloud" :: governance [required active]
+  do    = "for runpod dispatch use hexa cloud (structured argv)"
+  dont  = "raw `ssh` / `scp` for runpod"
+  tool  = "hexa cloud"
+  usage = "hexa cloud {run|nohup|poll|copy-to|copy-from}"
+
+@D g9 := "pool CLI available" :: governance [active]
+  do    = "use `pool` for host roster + remote exec"
+  tool  = "pool"
+  usage = "pool {list|add <host>|on <host> <cmd>|status|install tailscale}"
+```
+
+Both keys are optional and independent — a rule MAY use neither (e.g. `g1 := "ai-native"`), only `tool`, only `usage`, or both. Pre-v1.4 entries with just `do` / `dont` remain valid — fully backwards compatible. Enforced by `tape_absorb` (pending) and by sidecar `wilson-minimal-keep` ≥ 0.8.0 (S5 extended to recognize the two new keys).
+
 ## Project-tree convention (v1.2 — for `AGENTS.tape` ecosystem)
 
 Each `AGENTS.tape`'s top-level `@I id001` (the repo identity) carries tree-edge fields that let an algorithm (`tape_walk_tree`) crawl every `~/core/*/AGENTS.tape` and emit an aggregate project tree as a *derived view*. SSOT stays per-repo; the tree is computed.
@@ -701,6 +731,7 @@ Tape edges (`<:` `:>` `<-` etc.) are within-file only per §"Edge operators". Cr
 - **v1.2** (this spec, 2026-05-14) — 17 types (adds `@X` external-citation, `@F` forbidden-pattern, `@N` note, `@C` config, `@L` layout, `@V` spec-version) · 12 edges (adds `<:` specializes, `:>` generalizes, `?>` soft-depends, `!>` conflicts-with, `@>` projects-to) · governance grade tags (`required` / `recommended` / `optional` / `draft` / `active` / `deprecated` / `allow:<x>` / `deny:<x>`) · payload-syntax extensions (heredoc / array literal / `[@id]` inline citation / backtick code-span) · grammar primer header convention · `AGENTS.tape` pattern (replaces `AGENTS.md` cross-project). Adds 1 algorithm: `tape_to_agents_md` (fallback markdown generator).
 - **v1.2 amendment** (2026-05-20) — Compactness invariants for declarative entries (`AGENTS.tape` / `identity.tape` / `<DOMAIN>.tape`): per-entry ≤ 500 chars · field values must be 1 line (heredoc banned in declarative tapes) · ≤ 5 fields per entry. CJK and Latin glyphs counted identically (1 glyph = 1 char). Append-only event-stream tapes (`<sid>.tape` / `<DOMAIN>.log.tape`) are unaffected. Enforced by `tape_absorb` (warning-grade, pending) and by sidecar `wilson-minimal-keep` ≥ 0.6.0 (PreToolUse block).
 - **v1.3 amendment** (2026-05-20) — Governance imperative for `@D :: governance` entries: body keys closed at `{do, dont}` only · ≤ 2 fields. Size stays under v1.2's general 500-char cap (no separate v1.3 size threshold). Other declarative types unaffected. Pre-v1.3 entries grandfathered until next Write. Enforced by `tape_absorb` (pending) and by sidecar `wilson-minimal-keep` ≥ 0.8.0 (PreToolUse S5 block).
+- **v1.4 amendment** (2026-05-22) — Governance tool annotation: `@D :: governance` body opens up two OPTIONAL keys — `tool = "<name>"` (canonical CLI / tool the rule references) and `usage = "<syntax>"` (one-line invocation form). Closed set extended to `{do, dont, tool, usage}`; body still under v1.2's ≤ 5 field cap. Backwards compatible — pre-v1.4 entries with only `do` / `dont` remain valid. Enforced by `tape_absorb` (pending) and by sidecar `wilson-minimal-keep` ≥ 0.8.0 (S5 extended).
 - **v2** (reserved) — anticipated additions: structured payload on `@K` (per-model token breakdown); binary attachment side-car (analog of wilson's `_attachments` for `@R` lines pointing to images / files); n6-style verification-grade overlay for adapters that need it.
 
 Forward-compatibility rule: a v1.1 reader MUST skip any header line whose `<type>` is not in the v1.1 alphabet of {S, U, A, T, R, H, D, K, P, I, ?} rather than reject. Edge operators outside the v1 set of {`<-`, `->`, `=>`, `==`, `~>`, `\|>`, `!!`} MUST also be skipped rather than rejected. v1 readers encountering an `@I` line MUST skip-not-reject per the same rule. v1.1 readers encountering v1.2 types `{X, F, N, C, L, V}` or v1.2 edges `{<:, :>, ?>, !>, @>}` MUST skip-not-reject per the same rule.
