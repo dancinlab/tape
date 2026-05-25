@@ -10,13 +10,14 @@
 | `# ── Section ──` divider | `markup.heading.section` | Section break |
 | `# ═══` box divider | `markup.heading.box` | Major divider |
 | `# ...` other | `comment.line.number-sign` | Plain comment |
-| `@S @U @A @T @R @H @D @K @P @?` type prefix | `keyword.control.type` | Event type |
+| `@S @U @A @T @R @H @D @K @P @? @I @V @X @F @N @C @L` type prefix | `keyword.control.type` | Event / declarative type |
 | `<id>` event identifier | `entity.name.event` | Event name |
-| `:: <domain>` | `keyword.operator.domain` + `entity.name.namespace` | Domain tag |
-| `[T2 N48 ok]` grade | `keyword.other.delivery-state` + `constant.numeric.turn-index` + `constant.numeric.wall-clock` | Delivery state + indices |
-| `<-` / `->` / `=>` / `==` / `~>` / `\|>` / `!!` edges | `keyword.operator.edge` | Provenance operators |
+| `:: <domain>` | `keyword.operator.domain` + `entity.name.namespace` | Domain / kind tag |
+| `[T2 N48 ok]` · `[required active]` · `[d=2026-05-26]` · `[allow:read]` grade | `keyword.other.delivery-state` · `keyword.other.governance-state` · `keyword.other.scope` · `constant.numeric.{turn-index,wall-clock,date,version}` | Delivery / governance state + indices (bracket optional) |
+| `<-` `->` `=>` `==` `~>` `\|>` `!!` `<:` `:>` `?>` `!>` `@>` edges | `keyword.operator.edge` | Provenance + structural operators |
 | `"..."` quoted prose | `string.quoted.double.prose` | Descriptive prose |
-| `key=value` | `variable.parameter` + `keyword.operator.assignment` + `string.unquoted` | Key-value pair on header |
+| `do = "..."` / `key = "..."` body field | `variable.parameter.field` + `keyword.operator.assignment` + `string.quoted.double` | Body field line (2-space indent) |
+| `key=value` | `variable.parameter` + `keyword.operator.assignment` + `string.unquoted` | Inline key-value pair on header |
 | `123` / `-1.5e6` | `constant.numeric` | Numeric literal |
 | `+` / `-` / `*` / `^` / `(` `)` | `keyword.operator.arithmetic` | Expression operators |
 

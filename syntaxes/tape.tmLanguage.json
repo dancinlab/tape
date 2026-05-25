@@ -9,7 +9,9 @@
     { "include": "#box-divider" },
     { "include": "#comment" },
     { "include": "#entry-header" },
-    { "include": "#edge-line" }
+    { "include": "#roster-row" },
+    { "include": "#edge-line" },
+    { "include": "#field-line" }
   ],
   "repository": {
     "shebang": {
@@ -29,7 +31,7 @@
       "name": "comment.line.number-sign.tape"
     },
     "entry-header": {
-      "match": "^(@[SUATRHDKPI?])\\s+(\\S+)(?:\\s+(.+?))?\\s+(::)\\s+(\\S+)\\s+(\\[)([^\\]]+)(\\])\\s*$",
+      "match": "^(@[SUATRHDKPILVXFNC?])\\s+(\\S+)(?:\\s+(.+?))?\\s+(::)\\s+(\\S+)(?:\\s+(\\[)([^\\]]+)(\\]))?\\s*$",
       "captures": {
         "1": { "name": "keyword.control.type.tape" },
         "2": { "name": "entity.name.event.tape" },
@@ -48,19 +50,35 @@
           "name": "keyword.other.delivery-state.tape"
         },
         {
+          "match": "\\b(required|recommended|optional|draft|active|deprecated)\\b",
+          "name": "keyword.other.governance-state.tape"
+        },
+        {
+          "match": "(allow|deny):[^\\s\\]]+",
+          "name": "keyword.other.scope.tape"
+        },
+        {
           "match": "\\b(T\\d+)\\b",
           "name": "constant.numeric.turn-index.tape"
         },
         {
           "match": "\\b(N\\d+)\\b",
           "name": "constant.numeric.wall-clock.tape"
+        },
+        {
+          "match": "d=\\d{4}-\\d{2}-\\d{2}",
+          "name": "constant.numeric.date.tape"
+        },
+        {
+          "match": "v=[\\w.]+",
+          "name": "constant.numeric.version.tape"
         }
       ]
     },
     "edge-line": {
       "patterns": [
         {
-          "match": "^(\\s+)(<-|->|=>|==|~>|\\|>|!!)(\\s+)(.*)$",
+          "match": "^(\\s+)(<-|->|=>|==|~>|\\|>|!!|<:|:>|\\?>|!>|@>)(\\s+)(.*)$",
           "captures": {
             "2": { "name": "keyword.operator.edge.tape" },
             "4": { "patterns": [{ "include": "#expression" }] }
@@ -73,6 +91,24 @@
           }
         }
       ]
+    },
+    "field-line": {
+      "match": "^(\\s+)([a-z][A-Za-z0-9_-]*)(\\s*)(=)(\\s*)(.*)$",
+      "captures": {
+        "2": { "name": "variable.parameter.field.tape" },
+        "4": { "name": "keyword.operator.assignment.tape" },
+        "6": { "patterns": [{ "include": "#expression" }] }
+      }
+    },
+    "roster-row": {
+      "comment": "DOMAINS.tape :: index named-type rows, e.g. `@domain BRAIN := \"./BRAIN.md\"` (no :: kind, no grade)",
+      "match": "^(@[a-z][A-Za-z-]*)\\s+(\\S+)\\s+(:=)\\s+(.*)$",
+      "captures": {
+        "1": { "name": "keyword.control.type.tape" },
+        "2": { "name": "entity.name.event.tape" },
+        "3": { "name": "keyword.operator.assignment.tape" },
+        "4": { "patterns": [{ "include": "#expression" }] }
+      }
     },
     "expression": {
       "patterns": [

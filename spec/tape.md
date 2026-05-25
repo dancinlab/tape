@@ -1,4 +1,4 @@
-# Agent-Execution Trace — `.tape` format v1.2 (spec, 2026-05-14)
+# Agent-Execution Trace — `.tape` format v1.5 (spec, 2026-05-26)
 
 > Standalone mirror. Provenance: extracted from wilson harness-cli runtime instrumentation discussion (2026-05-13), patched with identity + domain-tape integration (v1.1, same day). Wilson today scatters runtime state across five `.jsonl` surfaces (transcript, recap, recap-index, cost ledger, task list) AND carries identity as a hard-coded 1-line block AND tracks per-domain history via author-discipline-only `## Log` sections; `.tape` is the typed grammar that collapses runtime, identity, and domain history into one append-only causal trace across 5 placements. Path references to wilson plugin ids are provenance markers; the grammar itself is self-contained and fully described below.
 
@@ -88,7 +88,7 @@ Fourth sibling of [`n6`](https://github.com/dancinlab/n6) (semantic / atlas laye
 | `@N` | (v1.2) Note / LLM-only hint — plugins skip; human + LLM read. Replaces `// note:` prose comments. | `@N n1 := "build-tip" :: note [active]` |
 | `@C` | (v1.2) Config / parameter — static value (port / timeout / path). Replaces ad-hoc `key = value` in @P entries. | `@C c1 := "session-dir" :: config [active]` |
 | `@L` | (v1.2) Layout / directory structure — `path -> "purpose"` body lines. Replaces markdown tree tables. | `@L l1 := "repo-layout" :: structure [active]` |
-| `@V` | (v1.2) Spec version self-declaration — file announces which `.tape` version + extensions it uses. | `@V := "tape" :: spec  version = "1.2"` |
+| `@V` | (v1.2) Spec version self-declaration — file announces which `.tape` version + extensions it uses. | `@V := "tape" :: spec  version = "1.5"` |
 
 The alphabet is **closed at 17** (11 runtime + `@I` foundational + 5 declarative). New *runtime* categories must map onto an existing type (e.g. an MCP server start is a `@P` event with `domain=mcp`, not a new type); cost extensions to `@K`; permissions decisions to `@D`; meta-domain condition state to `@D` with `domain=meta-domain`; per-build version stamps to `@I` with sub-kind `version`. The closed alphabet is what makes downstream consumers (replay, audit, promotion adapters) tractable.
 
@@ -157,10 +157,10 @@ The domain tag after `::` is a short token. The reference open set:
 session    harness     provider    tool         governance
 cost       recap       task        hook         mcp
 permissions  swarm     pool        identity     meta-domain
-atlas
+atlas        skill       glossary    index
 ```
 
-Three v1.1 entries (`identity`, `meta-domain`, `atlas`) extend the alphabet to carry the three non-session placements (see Placement matrix below). New domains may be added; consumers MUST skip-unrecognised rather than reject. The closed surface that consumers depend on is the **type alphabet** (11) plus the **edge alphabet** (7), not the domain.
+Three v1.1 entries (`identity`, `meta-domain`, `atlas`) extend the alphabet to carry the three non-session placements (see Placement matrix below). Three v1.5 entries: `skill` and `glossary` are declarative `@D` kinds that carry the same `{do, dont}` body as `:: governance` (see the v1.5 amendment) — `:: skill` for a `SKILL.md` body, `:: glossary` for a term→canonical-command map; `index` is the kind of a roster file's `@V` header (`DOMAINS.tape` — see the v1.5 amendment). New domains may be added; consumers MUST skip-unrecognised rather than reject. The closed surface that consumers depend on is the **type alphabet** (11) plus the **edge alphabet** (7), not the domain.
 
 Domain-tag *uppercased* maps to the on-disk filename of the corresponding domain head — `domain=harness` ↔ `HARNESS.md` + `HARNESS.tape` sibling. Joint events emit a `+`-composed tag — `domain=harness+tool+provider` ↔ `HARNESS+TOOL+PROVIDER.md`. Cross-project: `domain=anima::clm` ↔ `~/core/atlas/CLM+HEXA-BRAIN::EEG.tape`. The `+` and `::` separators in domain tags are the same operators the wilson `governance` plugin enforces at the filename level (governance principle #4 `domain-meta-domain`).
 
@@ -245,6 +245,7 @@ One grammar, five on-disk placements. Each placement carries a *majority* of cer
 | `~/core/<repo>/AGENTS.tape` | project-level agent harness (**editable** v1.2) | `@V`/`@I`/`@C`/`@L`/`@D :: governance`/`@F`/`@X`/`@N`/`@H` declarative | hand-edited, per-repo session | Claude Code · Aider · downstream `tape_walk_tree` |
 | `~/core/<repo>/<DOMAIN>.tape` | per-domain **architecture-current** (**editable** v1.2) | `@V`/`@I`/`@C`/`@L`/`@D :: governance`/`@F`/`@X`/`@N` declarative | hand-edited as design evolves | `wilson domain status`, downstream consumers |
 | `~/core/<repo>/<DOMAIN>.log.tape` | per-domain **append-only history** (v1.2 NEW) | `@A`/`@T`/`@R`/`@K`/`@H`/`@?`/`@D :: decision` events | git pre-commit hook, runtime emit | `tape_to_md_log` (renders `## Log` section of `<DOMAIN>.md`) |
+| `~/core/<repo>/DOMAINS.tape` | repo-root domain **roster** (**editable** · v1.5 NEW) | `@V :: index` + `@domain <NAME> := "<relpath>"` rows | sidecar `domain` plugin (`/domain init`) | `/domain list` · roster NAME→path resolution |
 | `~/core/atlas/<PROJ>::<DOMAIN>.log.tape` | cross-project federated **history** (**append-only**) | same as `<DOMAIN>.log.tape` with `domain=<proj>::<dom>` | each project's push hook | atlas reader, federated query |
 
 All placements share the same `tape_absorb` validator and the same `algorithms/tape_*.hexa` catalog. The placement determines what events dominate AND the mutability semantics (editable vs append-only). The grammar is fixed.
@@ -452,14 +453,14 @@ Body lines (indented 2 spaces under an entry header) carry the entry's data. v1.
 
 Consumers MAY parse only the forms they need; `[@<id>]` is informational (no semantic dependency).
 
-## Grammar primer (v1.2 — mandatory header for `AGENTS.tape`, recommended for cold-read tapes)
+## Grammar primer (mandatory header for `AGENTS.tape`, recommended for cold-read tapes)
 
 Any `AGENTS.tape` (and any tape file likely to be cold-read by an LLM or new contributor) SHOULD begin with this exact ~35-line comment header. The primer makes the file self-describing — an LLM seeing it for the first time (via `CLAUDE.md` symlink or otherwise) immediately knows how to parse the rest.
 
 ```
 #!/usr/bin/env tape
 # ══════════════════════════════════════════════════════════════════════
-# .tape v1.2 — grammar primer (cold-read by any LLM / agent / human)
+# .tape v1.5 — grammar primer (cold-read by any LLM / agent / human)
 # ══════════════════════════════════════════════════════════════════════
 # Form: each entry is `@<type> <id> := "<subject>" :: <kind> [<grades>]`
 #       optionally followed by body lines (2-space indent) — key=value,
@@ -494,6 +495,9 @@ Any `AGENTS.tape` (and any tape file likely to be cold-read by an LLM or new con
 #   "see [@x1] §3"          inline citation by entry id
 #   `cmd or path`           backtick code-span (inline only)
 #
+# @D BODY (governance · skill · glossary): {do, dont} ONLY — both keys
+#   repeatable (one imperative per line), no other key. v1.5.
+#
 # Full spec: ~/core/tape/spec/tape.md (or github.com/dancinlab/tape)
 # ══════════════════════════════════════════════════════════════════════
 ```
@@ -504,7 +508,7 @@ After the primer, the canonical first non-comment line is `@V` declaring the spe
 
 ```tape
 @V := "tape" :: spec
-  version = "1.2"
+  version = "1.5"
   uses = [@X, @F, @N, @C, @L, "<:", "@>", "[required]"]
 ```
 
@@ -598,7 +602,7 @@ Edges (`@>`, `<-`, `<:`, `?>`, `!>`, …) remain allowed as before — they are 
 | Cap | v1.2 (all declarative) | v1.3 (`@D :: governance` only) |
 |---|---|---|
 | Entry total | ≤ 500 chars | unchanged (S4 already enforces) |
-| Field count | ≤ 5 fields | ≤ 2 fields (`{do, dont}`) |
+| Field count | ≤ 5 fields | ≤ 2 fields (`{do, dont}`) — *superseded by v1.5: `do`/`dont` are repeatable, no count cap* |
 | Field key set | open | closed: `{do, dont}` |
 | Field value | 1 line, heredoc banned | unchanged |
 
@@ -632,6 +636,9 @@ A scrub that leaves *any* `@D :: governance` entry with a non-conforming key wil
 
 ## Governance tool annotation — `@D :: governance` body extended with `tool` / `usage` (v1.4 amendment, 2026-05-22)
 
+> [!WARNING]
+> **Reverted in v1.5** (see the next section). `tool` / `usage` were never authored in practice and are no longer valid `@D` body keys — the body is closed at `{do, dont}` again. This section is retained as a historical amendment record only; fold the canonical CLI into the `do` imperative instead.
+
 v1.3 closed the body at `{do, dont}`. v1.4 ADDS two OPTIONAL keys for canonical CLI / tool annotation. The closed set is now `{do, dont, tool, usage}` — body-cap stays under the v1.2 general 5-fields-per-entry rule (4 keys max with all present).
 
 | Field | Form | Use |
@@ -659,6 +666,78 @@ Field order convention: `do`, `dont`, `tool`, `usage`.
 ```
 
 Both keys are optional and independent — a rule MAY use neither (e.g. `g1 := "ai-native"`), only `tool`, only `usage`, or both. Pre-v1.4 entries with just `do` / `dont` remain valid — fully backwards compatible. Enforced by `tape_absorb` (pending) and by sidecar `wilson-minimal-keep` ≥ 0.8.0 (S5 extended to recognize the two new keys).
+
+## Governance body re-closed at {do, dont} · repeatable · `skill` / `glossary` kinds (v1.5 amendment, 2026-05-26)
+
+v1.5 reconciles the spec with cross-project authoring practice (sidecar `commons.tape` · `project.tape` · every `SKILL.md` body). Three changes, all backwards compatible with v1.3.
+
+**1. `tool` / `usage` reverted — body re-closed at `{do, dont}`.** The v1.4 amendment added optional `tool` / `usage` keys. In practice they were never authored (0 occurrences across the sidecar commons and all `SKILL.md` bodies), and the canonical CLI reads cleanly inline in the `do` imperative. v1.5 drops them — the `@D` body is closed at `{do, dont}`, exactly as v1.3. Fold the tool name into the directive:
+
+```tape
+# v1.4 (reverted):                          # v1.5 (canonical):
+@D g8 := "runpod dispatch" :: governance     @D g8 := "runpod dispatch" :: governance
+  do    = "use hexa cloud"                      do   = "runpod dispatch → `hexa cloud {run|nohup|poll|copy-to|copy-from}`"
+  tool  = "hexa cloud"                          dont = "raw `ssh` / `scp` / `runpodctl`"
+  usage = "hexa cloud {run|nohup|poll}"
+```
+
+**2. `do` / `dont` are repeatable — ordered directive lists.** v1.3 was read as "≤ 2 fields (one `do`, one `dont`)". v1.5 makes the intent explicit: a `@D` entry MAY carry **multiple** `do =` lines and **multiple** `dont =` lines. Each line is one imperative directive; lines sharing a key form an ordered list. There is no field-count cap on `do` / `dont` — the discipline is per-line length, not line count.
+
+| Key | Cardinality | Form |
+|---|---|---|
+| `do = "<imperative>"` | 0..N (repeatable) | one directive per line — what MUST be done |
+| `dont = "<imperative>"` | 0..N (repeatable) | one directive per line — what MUST NOT be done |
+
+No other body key is permitted on a `@D` entry (`why` · `tool` · `usage` · `note` · `rule` · `apply` · … all rejected). Edges (`<-` · `@>` · `<:` · …) are not body keys and remain allowed.
+
+**3. New declarative kinds — `:: skill` and `:: glossary`.** Two non-governance kinds carry the identical `{do, dont}` body and the same repeatable-line semantics:
+
+| Kind | Placement | Use |
+|---|---|---|
+| `:: skill` | a `SKILL.md` body — one `@D <name> :: skill` block | the skill's do/dont contract (no per-skill prose / README) |
+| `:: glossary` | a `@D <name> :: glossary` entry in a governance commons | non-Latin / phonetic term → canonical-command map (stall-prevention) |
+
+Both are added to the open domain alphabet and follow rule 2.
+
+**Per-value length discipline.** Each `do` / `dont` value SHOULD stay terse — ≤ ~100 chars. Overflow splits into another `do` / `dont` line rather than running long. Per-line discipline + repeatability naturally keeps an entry under v1.2's 500-char entry total.
+
+**Enforcement.** Sidecar `tape-lint` (PreToolUse Edit/Write deny on any `*.tape`) enforces do/dont-only — any other body key denies the write — and, on `commons.tape` / `project.tape`, the ≤ 100-char-per-value cap. Diff-aware: pre-existing violations are grandfathered; only newly-introduced or worsened keys/lines block. No opt-out by design (no env var, no config, no exception list).
+
+**Worked example** (sidecar commons `g61` — repeatable `do` / `dont`):
+
+```tape
+@D g61 := "hexa-lang stdlib is the SSOT for shared code" :: governance [required active]
+  do   = "promote reusable general primitives (math/info/signal/bitops/stats) to hexa-lang `stdlib/`"
+  do   = "≥2-repo reusable domain engine → `stdlib/<domain>/` (e.g. `consciousness/iit4` · `dsp`)"
+  do   = "stdlib = plain `.hexa` · callers import-only (thin shim/adapter) · keep byte-equal"
+  dont = "duplicate a primitive OR engine across repos · anima-locked abs-path import"
+  dont = "compiler builtin when stdlib fits · hand-edit `hexa_cc.c` (use `hexa cc --regen`)"
+```
+
+`:: skill` body (a `SKILL.md`):
+
+```tape
+@D ship := "atomic ship tail for sidecar plugin changes" :: skill
+  do   = "bump SemVer + lockstep all version surfaces FIRST · then `/ship -m <msg> <path>…`"
+  dont = "`/ship` with `-A`/`-u` (explicit paths only) · skip the version bump or credential scan"
+```
+
+**4. `DOMAINS.tape` roster placement — `:: index` kind + `@domain` named type.** The sidecar `domain` plugin keeps a repo-root `DOMAINS.tape` that maps each domain NAME to its snapshot path (`<DOMAIN>.md`). It is a declarative, editable roster — NAME→path is authoritative; progress and `@goal` stay *derived* (read live from each snapshot), so the roster never churns. The format is a minimal tape dialect:
+
+```tape
+# DOMAINS.tape — domain roster (NAME → snapshot path; progress/goal stay derived)
+@V := "domains" :: index
+
+@domain BRAIN := "./BRAIN.md"
+@domain AGENT := "./AGENT/AGENT.md"
+```
+
+- `@V := "domains" :: index` — header: subject `"domains"` (the format name), kind `:: index`. (The `@V` *subject* is informational; `:: index` is the placement marker.)
+- `@domain <NAME> := "<relpath>"` — one roster row per domain. Trailing `# comment` is allowed. An optional `@title = "<display>"` sub-line may follow but is informational (the display title stays authoritative in the snapshot).
+
+`@domain` is a **named (multi-character) entry type** — it sits OUTSIDE the closed-17 single-letter alphabet on purpose. The closed alphabet guarantees tractability for *runtime* consumers (replay / audit / promotion adapters); a `:: index` roster is config-like, never replayed, so a placement-local named type is safe and a conformant reader skip-not-rejects it per the forward-compatibility rule. Named entry types are permitted ONLY in `:: index` placements; runtime / foundation / declarative tapes stay closed at the 17-letter alphabet.
+
+> `@goal:` and `@title:` (colon form) are MARKDOWN line-markers inside a `<DOMAIN>.md` snapshot — the final-goal north-star and optional display header. They are not `.tape` entries (note the `:` vs the `:=` of a tape header) and are parsed by the `domain` plugin, not `tape_absorb`.
 
 ## Project-tree convention (v1.2 — for `AGENTS.tape` ecosystem)
 
@@ -731,7 +810,8 @@ Tape edges (`<:` `:>` `<-` etc.) are within-file only per §"Edge operators". Cr
 - **v1.2** (this spec, 2026-05-14) — 17 types (adds `@X` external-citation, `@F` forbidden-pattern, `@N` note, `@C` config, `@L` layout, `@V` spec-version) · 12 edges (adds `<:` specializes, `:>` generalizes, `?>` soft-depends, `!>` conflicts-with, `@>` projects-to) · governance grade tags (`required` / `recommended` / `optional` / `draft` / `active` / `deprecated` / `allow:<x>` / `deny:<x>`) · payload-syntax extensions (heredoc / array literal / `[@id]` inline citation / backtick code-span) · grammar primer header convention · `AGENTS.tape` pattern (replaces `AGENTS.md` cross-project). Adds 1 algorithm: `tape_to_agents_md` (fallback markdown generator).
 - **v1.2 amendment** (2026-05-20) — Compactness invariants for declarative entries (`AGENTS.tape` / `identity.tape` / `<DOMAIN>.tape`): per-entry ≤ 500 chars · field values must be 1 line (heredoc banned in declarative tapes) · ≤ 5 fields per entry. CJK and Latin glyphs counted identically (1 glyph = 1 char). Append-only event-stream tapes (`<sid>.tape` / `<DOMAIN>.log.tape`) are unaffected. Enforced by `tape_absorb` (warning-grade, pending) and by sidecar `wilson-minimal-keep` ≥ 0.6.0 (PreToolUse block).
 - **v1.3 amendment** (2026-05-20) — Governance imperative for `@D :: governance` entries: body keys closed at `{do, dont}` only · ≤ 2 fields. Size stays under v1.2's general 500-char cap (no separate v1.3 size threshold). Other declarative types unaffected. Pre-v1.3 entries grandfathered until next Write. Enforced by `tape_absorb` (pending) and by sidecar `wilson-minimal-keep` ≥ 0.8.0 (PreToolUse S5 block).
-- **v1.4 amendment** (2026-05-22) — Governance tool annotation: `@D :: governance` body opens up two OPTIONAL keys — `tool = "<name>"` (canonical CLI / tool the rule references) and `usage = "<syntax>"` (one-line invocation form). Closed set extended to `{do, dont, tool, usage}`; body still under v1.2's ≤ 5 field cap. Backwards compatible — pre-v1.4 entries with only `do` / `dont` remain valid. Enforced by `tape_absorb` (pending) and by sidecar `wilson-minimal-keep` ≥ 0.8.0 (S5 extended).
+- **v1.4 amendment** (2026-05-22) — Governance tool annotation: `@D :: governance` body opens up two OPTIONAL keys — `tool = "<name>"` (canonical CLI / tool the rule references) and `usage = "<syntax>"` (one-line invocation form). Closed set extended to `{do, dont, tool, usage}`; body still under v1.2's ≤ 5 field cap. **Reverted in v1.5** — never authored in practice.
+- **v1.5 amendment** (2026-05-26) — Governance body reconciled with practice: (1) `tool` / `usage` reverted — `@D` body re-closed at `{do, dont}` (fold the CLI into the `do` imperative); (2) `do` / `dont` are **repeatable** — an entry may carry multiple `do =` / `dont =` lines, each one ordered directive, no field-count cap (per-line ≤ ~100 char discipline instead); (3) two new declarative `@D` kinds — `:: skill` (`SKILL.md` body) and `:: glossary` (term→canonical-command map) — carry the identical `{do, dont}` repeatable body; (4) `DOMAINS.tape` roster placement — `@V :: index` header + `@domain <NAME> := "<relpath>"` rows, introducing the `:: index` kind and the first named (multi-character) entry type, permitted only in `:: index` placements (runtime/foundation/declarative stay closed at 17). Enforced by sidecar `tape-lint` (PreToolUse deny, do/dont-only + 100-char cap, diff-aware, no opt-out). Backwards compatible with v1.3.
 - **v2** (reserved) — anticipated additions: structured payload on `@K` (per-model token breakdown); binary attachment side-car (analog of wilson's `_attachments` for `@R` lines pointing to images / files); n6-style verification-grade overlay for adapters that need it.
 
 Forward-compatibility rule: a v1.1 reader MUST skip any header line whose `<type>` is not in the v1.1 alphabet of {S, U, A, T, R, H, D, K, P, I, ?} rather than reject. Edge operators outside the v1 set of {`<-`, `->`, `=>`, `==`, `~>`, `\|>`, `!!`} MUST also be skipped rather than rejected. v1 readers encountering an `@I` line MUST skip-not-reject per the same rule. v1.1 readers encountering v1.2 types `{X, F, N, C, L, V}` or v1.2 edges `{<:, :>, ?>, !>, @>}` MUST skip-not-reject per the same rule.

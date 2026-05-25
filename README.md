@@ -9,10 +9,10 @@
 <p align="center">
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-CC0--1.0-blue"></a>
   <a href=".github/workflows/lint.yml"><img alt="CI" src="https://github.com/dancinlab/tape/actions/workflows/lint.yml/badge.svg"></a>
-  <img alt="Spec" src="https://img.shields.io/badge/spec-v1.1-success">
-  <img alt="Types" src="https://img.shields.io/badge/types-11-informational">
-  <img alt="Edges" src="https://img.shields.io/badge/edges-7-informational">
-  <img alt="Placements" src="https://img.shields.io/badge/placements-5-informational">
+  <img alt="Spec" src="https://img.shields.io/badge/spec-v1.5-success">
+  <img alt="Types" src="https://img.shields.io/badge/types-17-informational">
+  <img alt="Edges" src="https://img.shields.io/badge/edges-12-informational">
+  <img alt="Placements" src="https://img.shields.io/badge/placements-8-informational">
   <img alt="Algorithms" src="https://img.shields.io/badge/algorithms-19-informational">
   <img alt="Sibling" src="https://img.shields.io/badge/sibling-n6%20·%20hxc%20·%20n12-blueviolet">
 </p>
@@ -91,8 +91,8 @@ The promotion sibling pattern decouples **what was done** (`.tape`, append-only,
 
 ## Status
 
-- v1.1 spec live (2026-05-13) — adds `@I` identity type + 5-placement matrix (per-session, identity singleton, recap index, per-domain, cross-project atlas)
-- 11 types · 7 edges · 6 delivery-state markers · open domain alphabet
+- v1.5 spec live (2026-05-26) — `@D` governance/skill/glossary body closed at `{do, dont}` (repeatable lines · `tool`/`usage` from v1.4 reverted) · `:: skill` + `:: glossary` kinds added (see [`spec/tape.md`](spec/tape.md))
+- 17 types · 12 edges · delivery + governance grade markers · open domain alphabet
 - 19 reference hexa-lang algorithms (`algorithms/`) — v1 catalog + `tape_render_identity` / `tape_to_md_log` / `tape_meta_verify` / `tape_domain_status` / `tape_to_md` (P1) / `md_to_tape` (P2) / `tape_query_table` (P4 table CLI view)
 - TextMate grammar shipped (`syntaxes/tape.tmLanguage.json`)
 - Wilson integration: reference adapters mapped in [`spec/tape.md`](spec/tape.md#reference-adapters-wilson-plugin-surface-mapping) and [`spec/tape.md#placement-matrix-v11`](spec/tape.md#placement-matrix-v11); plugin landing TBD
@@ -116,19 +116,22 @@ The promotion sibling pattern decouples **what was done** (`.tape`, append-only,
 | `@?` | Anomaly — error / abort / rate-limit / panic | any |
 | `@I` | Identity claim — foundational (birth / scope / principle / version / succession) | wilson `core/main.hexa::_identity_block`, `hexa build` post-step |
 
+Plus 6 declarative types (v1.2) for `AGENTS.tape` / `<DOMAIN>.tape` / `SKILL.md`: `@V` spec-version · `@X` external-citation · `@F` forbidden-pattern · `@N` note · `@C` config · `@L` layout. `@D` carries the governance / skill / glossary do-dont contract — body closed at `{do, dont}`, both keys repeatable (v1.5).
+
 Full grammar → [`spec/tape.md`](spec/tape.md).
 
-## Five placements
+## Placements
 
 | Placement | What | Singleton / per-X |
 |---|---|---|
 | `~/.wilson/identity.tape` | agent identity SSOT (replaces hard-coded `_identity_block()`) | **singleton** |
 | `~/.wilson/harness-cli/sessions/<sid>.tape` | per-session conversation events | per-session |
 | `~/.wilson/recap/index.tape` | session pointer index | singleton |
-| `~/core/<repo>/<DOMAIN>.tape` | per-domain history (sibling of `<DOMAIN>.md`) | per-domain |
+| `~/core/<repo>/<DOMAIN>.tape` | per-domain architecture-current (sibling of `<DOMAIN>.md`) | per-domain |
+| `~/core/<repo>/DOMAINS.tape` | repo-root domain roster — `@V :: index` + `@domain` rows (v1.5) | per-repo |
 | `~/core/atlas/<PROJ>::<DOMAIN>.tape` | cross-project federated history (governance #4 `domain-meta-domain`) | per-cross-domain |
 
-All five share the same grammar, validator (`tape_absorb`), and algorithm catalog. See [`spec/tape.md#placement-matrix-v11`](spec/tape.md).
+All placements share the same grammar, validator (`tape_absorb`), and algorithm catalog. Full 8-placement matrix (adds `<DOMAIN>.log.tape` history split) → [`spec/tape.md`](spec/tape.md).
 
 ## Install
 
@@ -146,7 +149,7 @@ hx install tape
 
 ```sh
 tape                            # show help (== `tape help` == `tape --help`)
-tape --version                  # tape v1.1 — <repo root>
+tape --version                  # tape v1.5 — <repo root>
 
 # guarded I/O
 tape bootstrap s001.tape s001         # initialise a new tape
@@ -243,7 +246,7 @@ tape/
 ├── bin/
 │   └── tape                      CLI dispatcher (`hx install` entry point)
 ├── spec/
-│   └── tape.md                   v1.1 grammar
+│   └── tape.md                   v1.5 grammar
 ├── examples/                     valid .tape samples (01–07)
 ├── algorithms/                   19 hexa-lang reference modules
 ├── tool/                         markers_to_tape migration tool (more planned)

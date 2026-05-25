@@ -1,5 +1,5 @@
 /**
- * tree-sitter grammar for .tape (agent-execution trace, v1.2).
+ * tree-sitter grammar for .tape (agent-execution trace, v1.5).
  *
  * Total line model, no external scanner, no regex look-around. Every
  * line token REQUIRES a trailing newline (no zero-width tokens → the
@@ -31,7 +31,9 @@ module.exports = grammar({
 
     header: $ => seq($.type, $._rest),
 
-    type: $ => token(prec(4, /@[A-Z?]/)),
+    // single-letter runtime/declarative types (closed alphabet) + named
+    // multi-char types for :: index rosters (e.g. `@domain` in DOMAINS.tape)
+    type: $ => token(prec(4, /@([A-Z?]|[a-z][a-z-]+)/)),
 
     edge: $ => seq($._indent, $.edge_op, $._rest),
 
