@@ -72,6 +72,20 @@
         {
           "match": "v=[\\w.]+",
           "name": "constant.numeric.version.tape"
+        },
+        {
+          "comment": "open tag-bag (v1.6): tier-N verification/reuse tier",
+          "match": "\\btier-\\d+\\b",
+          "name": "constant.numeric.tier.tape"
+        },
+        {
+          "comment": "open tag-bag (v1.6): domain-specific key=value grade tag, e.g. slug= group=",
+          "match": "\\b([a-z][a-z0-9-]*)(=)([^\\s\\]]+)",
+          "captures": {
+            "1": { "name": "variable.parameter.grade.tape" },
+            "2": { "name": "keyword.operator.assignment.tape" },
+            "3": { "name": "string.unquoted.tape" }
+          }
         }
       ]
     },

@@ -1,4 +1,4 @@
-# Agent-Execution Trace — `.tape` format v1.5 (spec, 2026-05-26)
+# Agent-Execution Trace — `.tape` format v1.6 (spec, 2026-05-26)
 
 > Standalone mirror. Provenance: extracted from wilson harness-cli runtime instrumentation discussion (2026-05-13), patched with identity + domain-tape integration (v1.1, same day). Wilson today scatters runtime state across five `.jsonl` surfaces (transcript, recap, recap-index, cost ledger, task list) AND carries identity as a hard-coded 1-line block AND tracks per-domain history via author-discipline-only `## Log` sections; `.tape` is the typed grammar that collapses runtime, identity, and domain history into one append-only causal trace across 5 placements. Path references to wilson plugin ids are provenance markers; the grammar itself is self-contained and fully described below.
 
@@ -88,7 +88,7 @@ Fourth sibling of [`n6`](https://github.com/dancinlab/n6) (semantic / atlas laye
 | `@N` | (v1.2) Note / LLM-only hint — plugins skip; human + LLM read. Replaces `// note:` prose comments. | `@N n1 := "build-tip" :: note [active]` |
 | `@C` | (v1.2) Config / parameter — static value (port / timeout / path). Replaces ad-hoc `key = value` in @P entries. | `@C c1 := "session-dir" :: config [active]` |
 | `@L` | (v1.2) Layout / directory structure — `path -> "purpose"` body lines. Replaces markdown tree tables. | `@L l1 := "repo-layout" :: structure [active]` |
-| `@V` | (v1.2) Spec version self-declaration — file announces which `.tape` version + extensions it uses. | `@V := "tape" :: spec  version = "1.5"` |
+| `@V` | (v1.2) Spec version self-declaration — file announces which `.tape` version + extensions it uses. Subject MAY name a format dialect (`"domains"` for `DOMAINS.tape`). | `@V := "tape" :: spec  version = "1.6"` |
 
 The alphabet is **closed at 17** (11 runtime + `@I` foundational + 5 declarative). New *runtime* categories must map onto an existing type (e.g. an MCP server start is a `@P` event with `domain=mcp`, not a new type); cost extensions to `@K`; permissions decisions to `@D`; meta-domain condition state to `@D` with `domain=meta-domain`; per-build version stamps to `@I` with sub-kind `version`. The closed alphabet is what makes downstream consumers (replay, audit, promotion adapters) tractable.
 
@@ -124,6 +124,8 @@ The alphabet is **closed at 17** (11 runtime + `@I` foundational + 5 declarative
 
 Composable: `[T2 N48 ok]`, `[T5 N91 denied]`, `[d=2026-05-13 ok]`, `[required]`, `[recommended draft]`, `[allow:read deny:write]`. Exactly one of the **runtime** set `{ok, err, denied, cancelled, partial, superseded}` per bracket when present. Governance / scope tags compose freely with each other but not with runtime delivery tags (an `@F` forbidden-pattern entry doesn't have "delivery state"). `T<n>` and `N<n>` are optional but recommended for any non-session runtime event; `@I` events use `d=...` instead; v1.2 declarative entries (`@X @F @N @C @L @V`) typically use `d=...` or omit time stamps entirely.
 
+**Open tag-bag (v1.6).** The bracket is an OPEN tag set, not a closed enum. The tags listed above are the *standardized* ones — they carry defined semantics and MUST NOT be redefined. A placement MAY add **domain-specific tags** alongside them, either bare (`tier-2`, `paper-track`, `fire-tier`, `g6-append-only`) or `key=value` (`slug=chat-init-ce-floor`, `group=CHAT`, `verdict=...`, `tier=2`). Conformant consumers skip-not-reject any tag they don't recognise (forward-compatibility rule). Observed in the wild: `@C … :: formula [slug=… group=…]` (CLAIMS.tape), `@X … :: reuse-edge [tier-2 active]` (NEXUS.tape). (Note: `key=value` *inside a quoted value or prose* — e.g. a math interval `[min=2, max=64]` in a `do` string — is NOT a grade bracket; only the trailing `[...]` of an entry-header line is.)
+
 > Verification grade (n6's `[10*]` / `[11*]`) does **not** apply to `.tape` — runtime events carry *what happened* not *what's true*. A tape entry's claim is verified by promoting it to a `.n6` atom via `tape_to_n6`.
 
 ## Edge operators (continuation lines)
@@ -158,9 +160,10 @@ session    harness     provider    tool         governance
 cost       recap       task        hook         mcp
 permissions  swarm     pool        identity     meta-domain
 atlas        skill       glossary    index
+formula      reuse-edge  provides    reuse-candidate
 ```
 
-Three v1.1 entries (`identity`, `meta-domain`, `atlas`) extend the alphabet to carry the three non-session placements (see Placement matrix below). Three v1.5 entries: `skill` and `glossary` are declarative `@D` kinds that carry the same `{do, dont}` body as `:: governance` (see the v1.5 amendment) — `:: skill` for a `SKILL.md` body, `:: glossary` for a term→canonical-command map; `index` is the kind of a roster file's `@V` header (`DOMAINS.tape` — see the v1.5 amendment). New domains may be added; consumers MUST skip-unrecognised rather than reject. The closed surface that consumers depend on is the **type alphabet** (11) plus the **edge alphabet** (7), not the domain.
+Three v1.1 entries (`identity`, `meta-domain`, `atlas`) extend the alphabet to carry the three non-session placements (see Placement matrix below). Three v1.5 entries: `skill` and `glossary` are declarative `@D` kinds that carry the same `{do, dont}` body as `:: governance` (see the v1.5 amendment) — `:: skill` for a `SKILL.md` body, `:: glossary` for a term→canonical-command map; `index` is the kind of a roster file's `@V` header (`DOMAINS.tape` — see the v1.5 amendment). Four v1.6 entries — `formula` (`CLAIMS.tape` claim entries) and `reuse-edge` / `provides` / `reuse-candidate` (`NEXUS.tape` lattice) — are free-body declarative kinds on `@C` / `@X` (see the v1.6 amendment). The alphabet is genuinely open and heavily exercised in the wild (a survey of two repos found 110+ distinct domain tags); the listing above is the *reference / standardized* set, not an enumeration. New domains may be added; consumers MUST skip-unrecognised rather than reject. The closed surface that consumers depend on is the **type alphabet** (11) plus the **edge alphabet** (7), not the domain.
 
 Domain-tag *uppercased* maps to the on-disk filename of the corresponding domain head — `domain=harness` ↔ `HARNESS.md` + `HARNESS.tape` sibling. Joint events emit a `+`-composed tag — `domain=harness+tool+provider` ↔ `HARNESS+TOOL+PROVIDER.md`. Cross-project: `domain=anima::clm` ↔ `~/core/atlas/CLM+HEXA-BRAIN::EEG.tape`. The `+` and `::` separators in domain tags are the same operators the wilson `governance` plugin enforces at the filename level (governance principle #4 `domain-meta-domain`).
 
@@ -246,6 +249,8 @@ One grammar, five on-disk placements. Each placement carries a *majority* of cer
 | `~/core/<repo>/<DOMAIN>.tape` | per-domain **architecture-current** (**editable** v1.2) | `@V`/`@I`/`@C`/`@L`/`@D :: governance`/`@F`/`@X`/`@N` declarative | hand-edited as design evolves | `wilson domain status`, downstream consumers |
 | `~/core/<repo>/<DOMAIN>.log.tape` | per-domain **append-only history** (v1.2 NEW) | `@A`/`@T`/`@R`/`@K`/`@H`/`@?`/`@D :: decision` events | git pre-commit hook, runtime emit | `tape_to_md_log` (renders `## Log` section of `<DOMAIN>.md`) |
 | `~/core/<repo>/DOMAINS.tape` | repo-root domain **roster** (**editable** · v1.5 NEW) | `@V :: index` + `@domain <NAME> := "<relpath>"` rows | sidecar `domain` plugin (`/domain init`) | `/domain list` · roster NAME→path resolution |
+| `~/core/<repo>/CLAIMS.tape` | repo-root verifiable-**claim index** (**editable** · v1.6 NEW) | `@C <id> :: formula [slug= group=]` free-body | hand-edited per claim | `hexa verify` (g5) → `.verdicts/` → `/paper` gate |
+| `~/core/<repo>/NEXUS.tape` | repo-root intra-project **reuse lattice** (**editable** · v1.6 NEW) | `@X :: reuse-edge / provides / reuse-candidate` free-body | hand-edited (commons `@D g67`) | reuse-graph query · INDEX.md pointer |
 | `~/core/atlas/<PROJ>::<DOMAIN>.log.tape` | cross-project federated **history** (**append-only**) | same as `<DOMAIN>.log.tape` with `domain=<proj>::<dom>` | each project's push hook | atlas reader, federated query |
 
 All placements share the same `tape_absorb` validator and the same `algorithms/tape_*.hexa` catalog. The placement determines what events dominate AND the mutability semantics (editable vs append-only). The grammar is fixed.
@@ -460,7 +465,7 @@ Any `AGENTS.tape` (and any tape file likely to be cold-read by an LLM or new con
 ```
 #!/usr/bin/env tape
 # ══════════════════════════════════════════════════════════════════════
-# .tape v1.5 — grammar primer (cold-read by any LLM / agent / human)
+# .tape v1.6 — grammar primer (cold-read by any LLM / agent / human)
 # ══════════════════════════════════════════════════════════════════════
 # Form: each entry is `@<type> <id> := "<subject>" :: <kind> [<grades>]`
 #       optionally followed by body lines (2-space indent) — key=value,
@@ -497,6 +502,7 @@ Any `AGENTS.tape` (and any tape file likely to be cold-read by an LLM or new con
 #
 # @D BODY (governance · skill · glossary): {do, dont} ONLY — both keys
 #   repeatable (one imperative per line), no other key. v1.5.
+#   @C/@X/@N/@I/@L/@V bodies stay free-key (NEXUS · CLAIMS placements). v1.6.
 #
 # Full spec: ~/core/tape/spec/tape.md (or github.com/dancinlab/tape)
 # ══════════════════════════════════════════════════════════════════════
@@ -508,7 +514,7 @@ After the primer, the canonical first non-comment line is `@V` declaring the spe
 
 ```tape
 @V := "tape" :: spec
-  version = "1.5"
+  version = "1.6"
   uses = [@X, @F, @N, @C, @L, "<:", "@>", "[required]"]
 ```
 
@@ -739,6 +745,59 @@ Both are added to the open domain alphabet and follow rule 2.
 
 > `@goal:` and `@title:` (colon form) are MARKDOWN line-markers inside a `<DOMAIN>.md` snapshot — the final-goal north-star and optional display header. They are not `.tape` entries (note the `:` vs the `:=` of a tape header) and are parsed by the `domain` plugin, not `tape_absorb`.
 
+## `CLAIMS.tape` + `NEXUS.tape` declarative placements (v1.6 amendment, 2026-05-26)
+
+A survey of two production repos (anima, demiurge) surfaced two more repo-root declarative placements, both built from the **existing** type alphabet (no new types) and the open domain alphabet. v1.6 documents them and ratifies the open grade tag-bag (see §Grade markers) they rely on.
+
+### `CLAIMS.tape` — verifiable-claim index (`@C :: formula`)
+
+A single audit index of a repo's verifiable claims, each routed claim → `hexa verify` (g5) → `.verdicts/<slug>/<id>.txt` → `/paper` gate. One `@C <id> :: formula` per claim; body keys are free-form (the `@D`-only `{do, dont}` restriction does NOT apply to `@C`).
+
+```tape
+@V := "tape" :: spec
+  version = "1.6"
+
+@I := "claims-index" :: identity [active]
+  brief = "Single audit index of verifiable claims."
+
+@C chat_init_ce_floor := "init_CE floor = ln(151936) = 11.931… (untrained CLM lower bound)" :: formula [slug=chat-init-ce-floor group=CHAT]
+  method = "expr"
+  cmd    = "hexa verify --expr ln 151936 11.931"
+  raw    = ".verdicts/chat-init-ce-floor/chat_init_ce_floor.txt"
+  src    = "HEXAD/LIFE/H_247_init_ce_catastrophic_floor.md §C4"
+```
+
+`slug=` / `group=` are open grade tags (§Grade markers). The verdict surface is the repo's own typed records — `tape_absorb` does not adjudicate truth (that is `hexa verify`).
+
+### `NEXUS.tape` — intra-project reuse lattice (`@X :: reuse-edge`)
+
+The repo-root reuse graph mandated by sidecar commons `@D g67` — nodes are domains, edges are *verified* primitive/discovery reuse between sibling domains (intra-project only; the hexa-lang stdlib/atlas hub is the one cross-project link, g68). Built from `@X` (external-citation / declarative) with free-form body — the author deliberately uses `@X` precisely because the `@D` do/dont closure does not bind it.
+
+```tape
+@V := "tape" :: spec
+  version = "1.6"
+
+@I nexus := "intra-project reuse lattice" :: identity [active]
+  scope = "intra-project ONLY — never link domains across repos (@D g67)"
+
+@X e1 := "NOVEL-TOOL current_loop_offaxis -> RTSC" :: reuse-edge [tier-2 active]
+  provides  = "NOVEL-TOOL M2.4"
+  primitive = "current_loop_offaxis (elliptic K/E on-axis B Green fn)"
+  reused_by = "RTSC"
+  evidence  = "PR #900 -> #168"
+
+@X p1 := "RTSC provides[]" :: provides [active]
+  primitives = "Wheeler on-axis B verifier · getdp solenoid templates"
+
+@X c1 := "ANTIMATTER -> HEXA-GRAV (proposed)" :: reuse-candidate [draft]
+```
+
+Three kinds: `reuse-edge` (a verified edge), `provides` (a domain's offered-primitive registry), `reuse-candidate` (a proposed, not-yet-realized edge). `tier-N` is an open grade tag for the reuse/verification tier.
+
+### Named (multi-char) types stay scoped
+
+Neither placement adds a named entry type — both reuse `@C` / `@X` / `@I`. The only blessed named type remains `@domain` (`:: index`, v1.5). Loose forms seen in archive ledgers (e.g. `@verdict_<slug> :=` in `archive/PHILOSOPHY.tape`, where type and id are not separated) are **non-conforming** and grandfathered as history — do not author new ones; use `@D … :: verdict-tier` or `@X` instead.
+
 ## Project-tree convention (v1.2 — for `AGENTS.tape` ecosystem)
 
 Each `AGENTS.tape`'s top-level `@I id001` (the repo identity) carries tree-edge fields that let an algorithm (`tape_walk_tree`) crawl every `~/core/*/AGENTS.tape` and emit an aggregate project tree as a *derived view*. SSOT stays per-repo; the tree is computed.
@@ -812,6 +871,7 @@ Tape edges (`<:` `:>` `<-` etc.) are within-file only per §"Edge operators". Cr
 - **v1.3 amendment** (2026-05-20) — Governance imperative for `@D :: governance` entries: body keys closed at `{do, dont}` only · ≤ 2 fields. Size stays under v1.2's general 500-char cap (no separate v1.3 size threshold). Other declarative types unaffected. Pre-v1.3 entries grandfathered until next Write. Enforced by `tape_absorb` (pending) and by sidecar `wilson-minimal-keep` ≥ 0.8.0 (PreToolUse S5 block).
 - **v1.4 amendment** (2026-05-22) — Governance tool annotation: `@D :: governance` body opens up two OPTIONAL keys — `tool = "<name>"` (canonical CLI / tool the rule references) and `usage = "<syntax>"` (one-line invocation form). Closed set extended to `{do, dont, tool, usage}`; body still under v1.2's ≤ 5 field cap. **Reverted in v1.5** — never authored in practice.
 - **v1.5 amendment** (2026-05-26) — Governance body reconciled with practice: (1) `tool` / `usage` reverted — `@D` body re-closed at `{do, dont}` (fold the CLI into the `do` imperative); (2) `do` / `dont` are **repeatable** — an entry may carry multiple `do =` / `dont =` lines, each one ordered directive, no field-count cap (per-line ≤ ~100 char discipline instead); (3) two new declarative `@D` kinds — `:: skill` (`SKILL.md` body) and `:: glossary` (term→canonical-command map) — carry the identical `{do, dont}` repeatable body; (4) `DOMAINS.tape` roster placement — `@V :: index` header + `@domain <NAME> := "<relpath>"` rows, introducing the `:: index` kind and the first named (multi-character) entry type, permitted only in `:: index` placements (runtime/foundation/declarative stay closed at 17). Enforced by sidecar `tape-lint` (PreToolUse deny, do/dont-only + 100-char cap, diff-aware, no opt-out). Backwards compatible with v1.3.
+- **v1.6 amendment** (2026-05-26) — Two more repo-root declarative placements documented from production survey (anima, demiurge), both built on existing types: `CLAIMS.tape` (`@C :: formula` verifiable-claim index → `hexa verify` → `/paper` gate) and `NEXUS.tape` (`@X :: reuse-edge / provides / reuse-candidate` intra-project reuse lattice, commons `@D g67`). Grade bracket ratified as an OPEN tag-bag: standardized tags keep fixed semantics, domain-specific tags (bare `tier-2` / `paper-track`, or `key=value` `slug=` / `group=`) are skip-not-reject. Domain alphabet noted as genuinely open (110+ tags observed). No new entry types; `@verdict_<slug>` archive looseness flagged non-conforming (grandfathered). Backwards compatible.
 - **v2** (reserved) — anticipated additions: structured payload on `@K` (per-model token breakdown); binary attachment side-car (analog of wilson's `_attachments` for `@R` lines pointing to images / files); n6-style verification-grade overlay for adapters that need it.
 
 Forward-compatibility rule: a v1.1 reader MUST skip any header line whose `<type>` is not in the v1.1 alphabet of {S, U, A, T, R, H, D, K, P, I, ?} rather than reject. Edge operators outside the v1 set of {`<-`, `->`, `=>`, `==`, `~>`, `\|>`, `!!`} MUST also be skipped rather than rejected. v1 readers encountering an `@I` line MUST skip-not-reject per the same rule. v1.1 readers encountering v1.2 types `{X, F, N, C, L, V}` or v1.2 edges `{<:, :>, ?>, !>, @>}` MUST skip-not-reject per the same rule.

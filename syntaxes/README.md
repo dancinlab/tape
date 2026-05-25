@@ -13,7 +13,7 @@
 | `@S @U @A @T @R @H @D @K @P @? @I @V @X @F @N @C @L` type prefix | `keyword.control.type` | Event / declarative type |
 | `<id>` event identifier | `entity.name.event` | Event name |
 | `:: <domain>` | `keyword.operator.domain` + `entity.name.namespace` | Domain / kind tag |
-| `[T2 N48 ok]` · `[required active]` · `[d=2026-05-26]` · `[allow:read]` grade | `keyword.other.delivery-state` · `keyword.other.governance-state` · `keyword.other.scope` · `constant.numeric.{turn-index,wall-clock,date,version}` | Delivery / governance state + indices (bracket optional) |
+| `[T2 N48 ok]` · `[required active]` · `[d=2026-05-26]` · `[allow:read]` · `[tier-2 slug=x]` grade | `keyword.other.delivery-state` · `keyword.other.governance-state` · `keyword.other.scope` · `constant.numeric.{turn-index,wall-clock,date,version,tier}` · `variable.parameter.grade` | Delivery / governance state + indices + open tag-bag (bracket optional) |
 | `<-` `->` `=>` `==` `~>` `\|>` `!!` `<:` `:>` `?>` `!>` `@>` edges | `keyword.operator.edge` | Provenance + structural operators |
 | `"..."` quoted prose | `string.quoted.double.prose` | Descriptive prose |
 | `do = "..."` / `key = "..."` body field | `variable.parameter.field` + `keyword.operator.assignment` + `string.quoted.double` | Body field line (2-space indent) |

@@ -8,6 +8,14 @@ For the full audit trail, see `git log`.
 
 ## 2026-05-26
 
+- **spec v1.6 amendment** — production survey (anima · demiurge roots) folds in two more repo-root declarative placements, both on existing types:
+  - `CLAIMS.tape` — `@C <id> :: formula [slug= group=]` verifiable-claim index (claim → `hexa verify` g5 → `.verdicts/` → `/paper` gate). Free-body `@C`.
+  - `NEXUS.tape` — `@X :: reuse-edge / provides / reuse-candidate` intra-project reuse lattice (commons `@D g67`). Free-body `@X` (deliberately not `@D`, to escape the do/dont closure).
+  - grade bracket ratified as an **open tag-bag** — standardized tags keep fixed meaning; domain tags (bare `tier-2` / `paper-track`, or `key=value` `slug=` / `group=`) are skip-not-reject. Domain alphabet noted genuinely open (110+ tags surveyed).
+  - `@verdict_<slug> :=` archive looseness (type/id not separated) flagged non-conforming, grandfathered. No new entry types.
+- **TextMate grammar** — open tag-bag highlighting: `tier-N` + generic `key=value` grade tags.
+- **version lockstep** — `bin/tape --version` v1.6 · `tree-sitter-tape` 0.1.2 · README badges (spec v1.6 · 10 placements) · spec title.
+
 - **spec v1.5 amendment** — governance body reconciled with cross-project authoring practice (sidecar `commons.tape` / `project.tape` / every `SKILL.md`):
   - `tool` / `usage` (v1.4) **reverted** — `@D` body re-closed at `{do, dont}`; fold the CLI into the `do` imperative.
   - `do` / `dont` are **repeatable** — an entry may carry multiple `do =` / `dont =` lines (ordered directive list); no field-count cap, per-line ≤ ~100 char discipline instead.

@@ -1,7 +1,7 @@
 {
   "name": "tree-sitter-tape",
-  "version": "0.1.1",
-  "description": "tree-sitter grammar for the .tape agent-execution trace format (v1.5)",
+  "version": "0.1.2",
+  "description": "tree-sitter grammar for the .tape agent-execution trace format (v1.6)",
   "repository": "https://github.com/dancinlab/tape",
   "license": "MIT",
   "keywords": ["tree-sitter", "parser", "tape", "dancinlab"],

@@ -102,7 +102,7 @@ case "$cmd" in
     exit 0
     ;;
   version|--version|-V)
-    echo "tape v1.5 — $TAPE_ROOT"
+    echo "tape v1.6 — $TAPE_ROOT"
     exit 0
     ;;
 esac
