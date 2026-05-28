@@ -141,7 +141,28 @@ def _send(o):
     sys.stdout.buffer.flush()
 
 
+# Files whose name ends with one of these suffixes use a DIFFERENT tape
+# dialect than the canonical commons/governance grammar, so the validator
+# would emit false positives against them. They share the `.tape` extension
+# (so the editor still routes them here) but carry a free-form schema:
+#   .mining.tape — /mining idea-cart (@goal: header + @P<n>/@X promotion rows)
+# For these we publish an empty diagnostic set (no grammar check) rather than
+# flag every line as malformed. See sidecar INBOX 2026-05-28 (tape-lsp ×
+# mining false-positive).
+_NO_GRAMMAR_SUFFIXES = (".mining.tape",)
+
+
+def _grammar_exempt(uri):
+    u = uri.split("?", 1)[0].split("#", 1)[0]
+    return any(u.endswith(sfx) for sfx in _NO_GRAMMAR_SUFFIXES)
+
+
 def _publish(uri, text):
+    if _grammar_exempt(uri):
+        # free-form dialect — skip the commons grammar check entirely
+        _send({"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
+               "params": {"uri": uri, "diagnostics": []}})
+        return
     try:
         d = validate(text)
     except Exception as e:
